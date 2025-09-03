@@ -1,68 +1,195 @@
-# CodeIgniter 4 Application Starter
+# Óticas Lumina (CodeIgniter 4)
 
-## What is CodeIgniter?
+Sistema para gestão de ordens, clientes e indicadores.
 
-CodeIgniter is a PHP full-stack web framework that is light, fast, flexible and secure.
-More information can be found at the [official site](https://codeigniter.com).
+---
 
-This repository holds a composer-installable app starter.
-It has been built from the
-[development repository](https://github.com/codeigniter4/CodeIgniter4).
+## 1) Visão geral
 
-More information about the plans for version 4 can be found in [CodeIgniter 4](https://forum.codeigniter.com/forumdisplay.php?fid=28) on the forums.
+- **Dashboard** com 5 KPIs:
+  1. Ordens no período (`data_compra` dentro do range)
+  2. Faturamento do mês (`SUM(valor_venda)`)
+  3. Valor pago do mês (`SUM(valor_pago)`)
+  4. Imposto (7% sobre faturamento do mês)
+  5. Lucro = **valor_pago – imposto – custo_mensal**
+- **Custo de operação** mensal (últimos 6 meses): soma de
+  `valor_armacao_1`, `valor_armacao_2`, `valor_lente_1`, `valor_lente_2`, **`consulta` (DECIMAL 10,2)**.
+- **Ordens** com busca em tempo real por `nome_cliente`, `ordem_servico` e **`vendedor`**.
+- **Clientes** CRUD.
+- UI com **Bootstrap 5**.
 
-You can read the [user guide](https://codeigniter.com/user_guide/)
-corresponding to the latest version of the framework.
+---
 
-## Installation & updates
+## 2) Setores do sistema
 
-`composer create-project codeigniter4/appstarter` then `composer update` whenever
-there is a new release of the framework.
+### 2.1 Dashboard
+- Controller: `app/Controllers/Dashboard.php`
+- KPIs e custos calculados por mês atual.
+- Lista “Últimas ordens”.
 
-When updating, check the release notes to see if there are any changes you might need to apply
-to your `app` folder. The affected files can be copied or merged from
-`vendor/codeigniter4/framework/app`.
+### 2.2 Ordens
+- Controller: `app/Controllers/Ordem.php`
+- Filtros:
+  - `field` ∈ {`nome_cliente`, `ordem_servico`, `vendedor`}
+  - `q` texto livre
+  - `vendedor` opcional como filtro dedicado (além de `field+q`)
+- Views:
+  - `app/Views/ordens/index.php` (tabela + filtros)
+  - `app/Views/ordens/_rows.php` (linhas; inclui coluna **Vendedor** entre “Cliente” e “Valor venda”)
 
-## Setup
+### 2.3 Clientes
+- Controller: `app/Controllers/Clientes.php` (CRUD básico)
+- Views em `app/Views/clientes/`
 
-Copy `env` to `.env` and tailor for your app, specifically the baseURL
-and any database settings.
+### 2.4 Layout/Navegação
+- Layout base: `app/Views/layouts/main.php`
+- Sidebar e offcanvas; conteúdo em `<main>`.
 
-## Important Change with index.php
+---
 
-`index.php` is no longer in the root of the project! It has been moved inside the *public* folder,
-for better security and separation of components.
+## 3) Requisitos
 
-This means that you should configure your web server to "point" to your project's *public* folder, and
-not to the project root. A better practice would be to configure a virtual host to point there. A poor practice would be to point your web server to the project root and expect to enter *public/...*, as the rest of your logic and the
-framework are exposed.
+- PHP 8.1+
+- Extensões: `intl`, `mbstring`, `json`, `mysqli` ou `pdo_mysql`
+- Composer
+- MySQL/MariaDB
 
-**Please** read the user guide for a better explanation of how CI4 works!
+---
 
-## Repository Management
+## 4) Instalação
 
-We use GitHub issues, in our main repository, to track **BUGS** and to track approved **DEVELOPMENT** work packages.
-We use our [forum](http://forum.codeigniter.com) to provide SUPPORT and to discuss
-FEATURE REQUESTS.
+```bash
+git clone https://github.com/SEUUSUARIO/SEUREPO.git
+cd SEUREPO
+composer install
+cp .env.example .env
+```
 
-This repository is a "distribution" one, built by our release preparation script.
-Problems with it can be raised on our forum, or as issues in the main repository.
+Edite `.env`:
 
-## Server Requirements
+```ini
+app.baseURL = 'http://localhost:8080/'
 
-PHP version 8.1 or higher is required, with the following extensions installed:
+database.default.hostname = 127.0.0.1
+database.default.database = lumina
+database.default.username = root
+database.default.password = ''
+database.default.DBDriver = MySQLi
+database.default.charset  = utf8mb4
+```
 
-- [intl](http://php.net/manual/en/intl.requirements.php)
-- [mbstring](http://php.net/manual/en/mbstring.installation.php)
+Permissões (Linux/Mac):
+```bash
+chmod -R 0777 writable
+```
 
-> [!WARNING]
-> - The end of life date for PHP 7.4 was November 28, 2022.
-> - The end of life date for PHP 8.0 was November 26, 2023.
-> - If you are still using PHP 7.4 or 8.0, you should upgrade immediately.
-> - The end of life date for PHP 8.1 will be December 31, 2025.
+---
 
-Additionally, make sure that the following extensions are enabled in your PHP:
+## 5) Banco de dados
 
-- json (enabled by default - don't turn it off)
-- [mysqlnd](http://php.net/manual/en/mysqlnd.install.php) if you plan to use MySQL
-- [libcurl](http://php.net/manual/en/curl.requirements.php) if you plan to use the HTTP\CURLRequest library
+### 5.1 Colunas esperadas em `ordens`
+- Identificação e datas:
+  - `id` (PK), `data_compra` (DATETIME), `data_entrega_oculos` (DATE), `deleted_at` (nullable)
+- Cliente e OS:
+  - `ordem_servico` (VARCHAR), `nome_cliente` (VARCHAR), **`vendedor` (VARCHAR)**
+- Valores:
+  - `valor_venda` DECIMAL(10,2), `valor_pago` DECIMAL(10,2)
+  - `valor_armacao_1` DECIMAL(10,2), `valor_armacao_2` DECIMAL(10,2)
+  - `valor_lente_1` DECIMAL(10,2), `valor_lente_2` DECIMAL(10,2)
+  - **`consulta` DECIMAL(10,2)**, `pagamento_laboratorio` DECIMAL(10,2)
+- Flags:
+  - `nota_gerada` TINYINT(1)
+
+### 5.2 Ajustes rápidos
+Adicionar **vendedor** (se faltar):
+```sql
+ALTER TABLE ordens ADD COLUMN vendedor VARCHAR(100) NULL AFTER nome_cliente;
+CREATE INDEX idx_ordens_vendedor ON ordens (vendedor);
+```
+
+Garantir **consulta** decimal:
+```sql
+ALTER TABLE ordens MODIFY COLUMN consulta DECIMAL(10,2) NULL;
+```
+
+---
+
+## 6) Executar
+
+```bash
+php spark serve
+# http://localhost:8080
+```
+
+---
+
+## 7) Uso dos filtros (Ordens)
+
+- Por campo + texto:
+  ```
+  /ordens?field=vendedor&q=Maria
+  /ordens?field=nome_cliente&q=Silva
+  ```
+- Filtro dedicado de vendedor:
+  ```
+  /ordens?vendedor=Joao
+  ```
+
+Na view `ordens/index.php`, o JS envia `q`, `field` e `vendedor` (se existir o input).
+No controller, ambos funcionam: `like($field, $q)` e `like('vendedor', $vendedor)`.
+
+---
+
+## 8) Versionamento (Git/GitHub)
+
+`.gitignore` sugerido:
+```
+/vendor/
+/writable/*
+!/writable/index.html
+/public/uploads/*
+!/public/uploads/.gitkeep
+.env
+/.env.*
+/*.local.php
+/.idea/
+/.vscode/
+/node_modules/
+```
+
+Fluxo:
+```bash
+git init
+git add -A
+git commit -m "chore: initial import"
+
+git branch -M main
+git remote add origin https://github.com/SEUUSUARIO/SEUREPO.git
+git push -u origin main
+```
+
+Erros comuns de push:
+- Se o remoto já tem commits:
+  ```bash
+  git pull origin main --allow-unrelated-histories
+  git push -u origin main
+  ```
+- Para sobrescrever:
+  ```bash
+  git push -u origin main --force
+  ```
+
+---
+
+## 9) Deploy
+
+- `DocumentRoot` apontando para `public/`.
+- `.env`:
+  ```ini
+  app.env = production
+  app.debug = false
+  ```
+- Permissões em `writable/`.
+- `baseURL` com o domínio final.
+
+---
