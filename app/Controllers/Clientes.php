@@ -104,9 +104,25 @@ class Clientes extends BaseController
         $data['telefone'] = $this->onlyDigits($data['telefone'] ?? null);
         $data['cep'] = $this->onlyDigits($data['cep'] ?? null);
 
+        $isAjax = $this->request->isAJAX();
+
         if (!$this->model->save($data)) {
+            if ($isAjax) {
+                return $this->response
+                    ->setStatusCode(422)
+                    ->setJSON(['ok' => false, 'errors' => $this->model->errors(), 'csrf' => csrf_hash()]);
+            }
             return redirect()->back()->withInput()->with('errors', $this->model->errors());
         }
+
+        $id     = $this->model->getInsertID();
+        $nome   = $data['nome'] ?? '';
+
+        if ($isAjax) {
+            return $this->response->setJSON(['ok' => true, 'id' => $id, 'nome' => $nome, 'csrf' => csrf_hash()]);
+        }
+
+
         return redirect()->to(site_url('clientes'))->with('msg', 'Cliente criado.');
     }
 
