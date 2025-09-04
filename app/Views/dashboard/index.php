@@ -9,68 +9,102 @@
     </div>
 </div>
 
-<?php $lucro = (float)($stats['valor_lucro'] ?? 0);
-$lucroClass = $lucro >= 0 ? 'text-success' : 'text-danger'; ?>
+<?php
+$lucro = (float)($stats['valor_lucro'] ?? 0);
+$lucroClass = $lucro >= 0 ? 'text-success' : 'text-danger';
+?>
 
 <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-5 g-3 mb-3">
 
-    <div class="col">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">Ordens (total)</div>
-                <div class="display-6 fw-semibold"><?= esc($stats['ordens_total'] ?? 0) ?></div>
-                <div class="small text-muted">Período atual</div>
-            </div>
-        </div>
-    </div>
+    <?php if (!empty($canSeeLimited) && $canSeeLimited): ?>
 
-    <div class="col">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">Faturamento (estimado)</div>
-                <div class="display-6 fw-semibold">
-                    R$ <?= number_format((float)($stats['faturamento_estimado'] ?? 0), 2, ',', '.') ?>
+        <!-- VENDEDOR: mostra apenas Faturamento e Valor Recebido -->
+        <div class="col">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Faturamento (estimado)</div>
+                    <div class="display-6 fw-semibold">
+                        R$ <?= number_format((float)($stats['faturamento_estimado'] ?? 0), 2, ',', '.') ?>
+                    </div>
+                    <div class="small text-muted">Mês atual</div>
                 </div>
-                <div class="small text-muted">Mês atual</div>
             </div>
         </div>
-    </div>
 
-    <div class="col">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">Valor Recebido</div>
-                <div class="display-6 fw-semibold">
-                    R$ <?= number_format((float)($stats['valor_pago'] ?? 0), 2, ',', '.') ?>
+        <div class="col">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Valor Recebido</div>
+                    <div class="display-6 fw-semibold">
+                        R$ <?= number_format((float)($stats['valor_pago'] ?? 0), 2, ',', '.') ?>
+                    </div>
+                    <div class="small text-muted">Mês atual</div>
                 </div>
-                <div class="small text-muted">Mês atual</div>
             </div>
         </div>
-    </div>
 
-    <div class="col">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">Imposto (7%)</div>
-                <div class="display-6 fw-semibold">
-                    R$ <?= number_format((float)($stats['valor_imposto'] ?? 0), 2, ',', '.') ?>
-                </div>
-                <div class="small text-muted">Sobre faturamento</div>
-            </div>
-        </div>
-    </div>
+    <?php elseif (!empty($canSeeAllFin) && $canSeeAllFin): ?>
 
-    <div class="col">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <div class="text-muted small">Lucro</div>
-                <div class="display-6 fw-semibold <?= $lucroClass ?>">
-                    R$ <?= number_format($lucro, 2, ',', '.') ?>
+        <!-- ADMIN/GERENTE: mostra todos os cards -->
+        <div class="col">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Ordens (total)</div>
+                    <div class="display-6 fw-semibold"><?= esc($stats['ordens_total'] ?? 0) ?></div>
+                    <div class="small text-muted">Período atual</div>
                 </div>
-                <div class="small text-muted">Total do mês vigente</div>
             </div>
         </div>
-    </div>
+
+        <div class="col">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Faturamento (estimado)</div>
+                    <div class="display-6 fw-semibold">
+                        R$ <?= number_format((float)($stats['faturamento_estimado'] ?? 0), 2, ',', '.') ?>
+                    </div>
+                    <div class="small text-muted">Mês atual</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Valor Recebido</div>
+                    <div class="display-6 fw-semibold">
+                        R$ <?= number_format((float)($stats['valor_pago'] ?? 0), 2, ',', '.') ?>
+                    </div>
+                    <div class="small text-muted">Mês atual</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Imposto (7%)</div>
+                    <div class="display-6 fw-semibold">
+                        R$ <?= number_format((float)($stats['valor_imposto'] ?? 0), 2, ',', '.') ?>
+                    </div>
+                    <div class="small text-muted">Sobre faturamento</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small">Lucro</div>
+                    <div class="display-6 fw-semibold <?= $lucroClass ?>">
+                        R$ <?= number_format($lucro, 2, ',', '.') ?>
+                    </div>
+                    <div class="small text-muted">Total do mês vigente</div>
+                </div>
+            </div>
+        </div>
+
+    <?php endif; ?>
 
 </div>
 

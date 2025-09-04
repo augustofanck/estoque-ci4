@@ -36,12 +36,16 @@ class Auth extends BaseController
 
         session()->regenerate();
         session()->set([
-            'uid'    => (int)$user['id'],
-            'uname'  => (string)$user['name'],
-            'uemail' => (string)$user['email'],
+            'uid'    => $user['id'],
+            'uname'  => $user['name'],
+            'uemail' => $user['email'],
+            'role'   => (int) $user['role'], // 0 - Vendedor | 1 - Gerente | 2 - Admin
         ]);
 
-        return redirect()->to(site_url('/'));
+        $dest = session()->get('intend_url') ?: site_url('/');
+        session()->remove('intend_url');
+
+        return redirect()->to($dest);
     }
 
     public function logout()

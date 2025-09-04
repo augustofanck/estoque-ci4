@@ -13,9 +13,9 @@
 <body class="d-flex flex-column" style="min-height:100vh;">
 
     <!-- NAVBAR -->
-    <nav class="navbar navbar-light bg-light">
+    <nav class="navbar navbar-light bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="<?= site_url('/') ?>">Lumina</a>
+            <a class="navbar-brand text-white" href="<?= site_url('/') ?>">Lumina</a>
 
             <?php if (session()->get('uid')): ?>
                 <div class="dropdown">
