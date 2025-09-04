@@ -1,0 +1,9 @@
+:root { --sidebar-width: 280px; }
+body { background:#f8f9fa; }
+.sidebar { position:sticky; top:1rem; max-height:calc(100vh - 2rem); overflow:auto; }
+.sidebar .list-group-item { border:0; }
+.sidebar .list-group-item.active { background:#0d6efd; }
+.btn-toggle { width:100%; text-align:left; }
+.btn-toggle::after { content:'▸'; float:right; transition:transform .15s; }
+.btn-toggle[aria-expanded="true"]::after { transform:rotate(90deg); }
+.main-container { min-height:100vh; }
