@@ -12,7 +12,7 @@
             </td>
 
             <td><?= esc($o['ordem_servico'] ?? '-') ?></td>
-            <td><?= esc($o['nome_cliente'] ?? '-') ?></td>
+            <td><?= esc($o['cliente'] ?? '—') ?></td>
 
             <!-- NOVO: Vendedor -->
             <td><?= esc($o['vendedor'] ?? '—') ?></td>

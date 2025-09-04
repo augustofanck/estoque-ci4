@@ -29,10 +29,16 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                         value="<?= old('ordem_servico', $ordem['ordem_servico'] ?? '') ?>">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Nome do cliente</label>
-                    <input type="text" name="nome_cliente" class="form-control"
-                        placeholder="Cliente"
-                        value="<?= old('nome_cliente', $ordem['nome_cliente'] ?? '') ?>">
+                    <label class="form-label">Cliente <span class="text-danger">*</span></label>
+                    <select name="cliente_id" id="cliente_id" class="form-select" required>
+                        <option value="">Selecione um cliente...</option>
+                        <?php foreach (($clientes ?? []) as $c): ?>
+                            <option value="<?= (int)$c['id'] ?>"
+                                <?= isset($ordem['cliente_id']) && (int)$ordem['cliente_id'] === (int)$c['id'] ? 'selected' : '' ?>>
+                                <?= esc($c['nome']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
             </div>
         </div>

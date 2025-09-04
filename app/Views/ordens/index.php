@@ -11,7 +11,7 @@
         <div class="row g-2 align-items-center">
             <div class="col-md-3">
                 <select id="field" class="form-select">
-                    <option value="nome_cliente" <?= ($field ?? 'nome_cliente') === 'nome_cliente' ? 'selected' : '' ?>>Nome do cliente</option>
+                    <option value="cliente" <?= ($field ?? 'cliente') === 'cliente' ? 'selected' : '' ?>>Nome do cliente</option>
                     <option value="ordem_servico" <?= ($field ?? '') === 'ordem_servico' ? 'selected' : '' ?>>Nº da O.S.</option>
                     <option value="vendedor" <?= ($field ?? '') === 'vendedor' ? 'selected' : '' ?>>Vendedor</option>
                 </select>
