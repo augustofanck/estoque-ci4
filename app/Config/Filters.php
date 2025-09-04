@@ -36,6 +36,8 @@ class Filters extends BaseFilters
         'performance'   => PerformanceMetrics::class,
         'apiauth'       => \App\Filters\ApiAuth::class,
         'auth'          => \App\Filters\AuthFilter::class,
+        'role'          => \App\Filters\RoleFilter::class,
+        'webauth'       => \App\Filters\WebAuth::class,
     ];
 
     /**
@@ -74,9 +76,7 @@ class Filters extends BaseFilters
      */
     public array $globals = [
         'before' => [
-            // 'honeypot',
-            // 'csrf',
-            // 'invalidchars',
+            'csrf' => ['except' => ['api/*']],
         ],
         'after' => [
             // 'honeypot',

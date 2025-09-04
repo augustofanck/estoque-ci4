@@ -4,39 +4,45 @@ use CodeIgniter\Router\RouteCollection;
 
 /** @var RouteCollection $routes */
 
-// --- API (JWT) ---
-$routes->post('api/login',   'AuthApi::login');
-$routes->post('api/refresh', 'AuthApi::refresh');
-$routes->post('api/logout',  'AuthApi::logout');
-
-$routes->group('api', ['filter' => 'apiauth'], static function ($routes) {
-    $routes->get('ordens', 'OrdemApi::index');
-    // ...demais endpoints protegidos...
-});
-
-// --- Auth web (sessão) ---
+// Auth web
 $routes->get('login',  'Auth::login');
 $routes->post('login', 'Auth::doLogin');
 $routes->get('logout', 'Auth::logout');
 
-// --- Páginas protegidas (sessão) ---
-$routes->group('', ['filter' => 'auth'], static function ($routes) {
-    // Dashboard
-    $routes->get('/', 'Dashboard::index');
+// API JWT
+$routes->group('api', ['filter' => 'apiauth'], static function ($routes) {
+    $routes->get('ordens', 'OrdemApi::index');
+});
 
-    // Ordens
-    $routes->get('ordens',                 'Ordem::index');
-    $routes->get('ordens/create',          'Ordem::create');
-    $routes->post('ordens',                'Ordem::store');
-    $routes->get('ordens/(:num)/edit',     'Ordem::edit/$1');
-    $routes->post('ordens/(:num)/update',  'Ordem::update/$1');
-    $routes->get('ordens/(:num)/delete',   'Ordem::delete/$1');
+// ÁREA LOGADA WEB
+$routes->group('', ['filter' => 'webauth'], static function ($routes) {
 
-    // Clientes
-    $routes->get('clientes',               'Clientes::index');
-    $routes->get('clientes/create',        'Clientes::create');
-    $routes->post('clientes/store',        'Clientes::store');
-    $routes->get('clientes/(:num)/edit',   'Clientes::edit/$1');
-    $routes->post('clientes/(:num)/update', 'Clientes::update/$1');
-    $routes->get('clientes/(:num)/delete', 'Clientes::delete/$1');
+    // Dashboard: todos logados (0+)
+    $routes->get('/', 'Dashboard::index', ['filter' => 'role:min:0']);
+
+    // Ordens: vendedor 0+, editar 1+, deletar 2
+    $routes->group('ordens', static function ($r) {
+        $r->get('/',              'Ordem::index',               ['filter' => 'role:min:0']);
+        $r->get('create',         'Ordem::create',              ['filter' => 'role:min:0']);
+        $r->post('',              'Ordem::store',               ['filter' => 'role:min:0']);
+        $r->get('(:num)/edit',    'Ordem::edit/$1',             ['filter' => 'role:min:1']);
+        $r->post('(:num)/update', 'Ordem::update/$1',           ['filter' => 'role:min:1']);
+        $r->get('(:num)/delete',  'Ordem::delete/$1',           ['filter' => 'role:min:2']);
+    });
+
+    // Clientes: vendedor 0+, editar 1+, deletar 2
+    $routes->group('clientes', static function ($r) {
+        $r->get('/',              'Clientes::index',            ['filter' => 'role:min:0']);
+        $r->get('create',         'Clientes::create',           ['filter' => 'role:min:0']);
+        $r->post('store',         'Clientes::store',            ['filter' => 'role:min:0']);
+        $r->get('(:num)/edit',    'Clientes::edit/$1',          ['filter' => 'role:min:1']);
+        $r->post('(:num)/update', 'Clientes::update/$1',        ['filter' => 'role:min:1']);
+        $r->get('(:num)/delete',  'Clientes::delete/$1',        ['filter' => 'role:min:2']);
+    });
+
+    // Usuários: apenas admin (2)
+    $routes->group('usuarios', ['filter' => 'role:min:2'], static function ($r) {
+        $r->get('/',             'Usuarios::index');
+        $r->post('(:num)/role',  'Usuarios::changeRole/$1');
+    });
 });

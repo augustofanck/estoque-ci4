@@ -28,11 +28,11 @@ class Dashboard extends BaseController
         $db = \Config\Database::connect();
         $T  = 'ordens';
 
-        $notDeleted = function (\CodeIgniter\Database\BaseBuilder $b) {
+        $notDeleted = function (\CodeIgniter\Database\BaseBuilder $b, string $t) {
             $b->groupStart()
-                ->where('deleted_at IS NULL', null, false)
-                ->orWhere('deleted_at', '')
-                ->orWhere('deleted_at', '0000-00-00 00:00:00')
+                ->where("$t.deleted_at IS NULL", null, false)
+                ->orWhere("$t.deleted_at", '')
+                ->orWhere("$t.deleted_at", '0000-00-00 00:00:00')
                 ->groupEnd();
         };
 
@@ -41,7 +41,7 @@ class Dashboard extends BaseController
             ->select('COUNT(*) AS c')
             ->where('data_compra >=', $iniPeriodo)
             ->where('data_compra <=', $fimPeriodo);
-        $notDeleted($b1);
+        $notDeleted($b1, 'ordens');
         if ($status !== 'todos') {
             $b1->where('status', $status);
         }
@@ -52,7 +52,7 @@ class Dashboard extends BaseController
             ->select('SUM(valor_venda) AS fat_sum')
             ->where('data_compra >=', $iniMes)
             ->where('data_compra <=', $fimMes);
-        $notDeleted($b2);
+        $notDeleted($b2, 'ordens');
         $fatRow = $b2->get()->getRowArray();
         $faturamentoEstimado = $fatRow['fat_sum'] !== null ? (float) $fatRow['fat_sum'] : 0.0;
 
@@ -61,7 +61,7 @@ class Dashboard extends BaseController
             ->select('SUM(valor_pago) AS pago_sum')
             ->where('data_compra >=', $iniMes)
             ->where('data_compra <=', $fimMes);
-        $notDeleted($b3);
+        $notDeleted($b3, 'ordens');
         $pagoRow = $b3->get()->getRowArray();
         $valorPagoMes = $pagoRow['pago_sum'] !== null ? (float) $pagoRow['pago_sum'] : 0.0;
 
@@ -83,7 +83,7 @@ class Dashboard extends BaseController
             ->select('data_compra, valor_armacao_1, valor_armacao_2, valor_lente_1, valor_lente_2, consulta')
             ->where('data_compra >=', $inicioJanela)
             ->where('data_compra <=', $fimJanela);
-        $notDeleted($bCustos);
+        $notDeleted($bCustos, 'ordens');
         $ordensJanela = $bCustos->get()->getResultArray();
 
         foreach ($ordensJanela as $o) {
@@ -126,13 +126,17 @@ class Dashboard extends BaseController
 
         // ---------- Últimas ordens ----------
         $bUlt = $db->table($T)
-            ->select('id, status, data_compra, nome_cliente AS cliente')
-            ->orderBy('data_compra', 'DESC')
+            ->select('ordens.id, ordens.status, ordens.data_compra, c.nome AS cliente')
+            ->join('clientes c', 'c.id = ordens.cliente_id', 'left')
+            ->orderBy('ordens.data_compra', 'DESC')
             ->limit(8);
-        $notDeleted($bUlt);
+
+        $notDeleted($bUlt, 'ordens'); // sempre
+        $notDeleted($bUlt, 'c');      // opcional: só se quiser excluir clientes deletados também
+
         $ultimasOrdens = $bUlt->get()->getResultArray();
 
-               // ---------- Montagem final ----------
+        // ---------- Montagem final ----------
         $data = [
             'title' => 'Dashboard',
             'filtros' => [
@@ -147,6 +151,9 @@ class Dashboard extends BaseController
                 'valor_imposto'        => $valorImposto,
                 'valor_lucro'          => $valorLucro,
             ],
+            'role'                 => $role = role_level(),
+            'canSeeAllFin'         => $role >= 1,
+            'canSeeLimited'        => $role === 0,
             'custo_operacao_meses' => $custo_operacao_meses,
             'ultimas_ordens'       => $ultimasOrdens,
             'estoque_baixo'        => [],
