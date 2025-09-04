@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="<?= base_url('css/app.css') ?>" rel="stylesheet">
+    <link rel="icon" href="<?= base_url('assets/images/logo2.png') ?>" type="image/x-icon">
     <?= $this->renderSection('head') ?>
 </head>
 <?php
@@ -29,7 +30,10 @@ $showIf = function ($ctrl) use ($seg1) {
     <!-- Navbar -->
     <nav class="navbar navbar-dark bg-dark">
         <div class="container-fluid">
-            <a class="navbar-brand" href="<?= site_url('/') ?>">Lumina</a>
+            <a class="navbar-brand d-flex align-items-center gap-2" href="<?= site_url('/') ?>">
+                <img src="<?= base_url('assets/images/logo2.png') ?>" alt="Lumina" width="32" height="32" class="align-text-top">
+                <span class="d-none d-sm-inline">Lumina</span>
+            </a>
             <div class="d-flex align-items-center gap-2">
                 <?php if (session()->get('uid')): ?>
                     <div class="dropdown">
