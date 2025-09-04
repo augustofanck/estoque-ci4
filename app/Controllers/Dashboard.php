@@ -132,27 +132,7 @@ class Dashboard extends BaseController
         $notDeleted($bUlt);
         $ultimasOrdens = $bUlt->get()->getResultArray();
 
-        // ---------- Contratos a vencer (próx. 15 dias) ----------
-        $hojeYmd   = date('Y-m-d');
-        $limiteYmd = date('Y-m-d', strtotime('+15 days'));
-        $contratosRaw = $clienteModel
-            ->select('id, nome, termino_contrato')
-            ->where('termino_contrato >=', $hojeYmd)
-            ->where('termino_contrato <=', $limiteYmd)
-            ->orderBy('termino_contrato', 'ASC')
-            ->findAll();
-
-        $contratosExp = array_map(function ($c) {
-            $dias = (new \DateTime($c['termino_contrato']))->diff(new \DateTime())->days;
-            return [
-                'id'               => $c['id'],
-                'nome'             => $c['nome'],
-                'termino_contrato' => $c['termino_contrato'],
-                'dias_restantes'   => $dias,
-            ];
-        }, $contratosRaw ?? []);
-
-        // ---------- Montagem final ----------
+               // ---------- Montagem final ----------
         $data = [
             'title' => 'Dashboard',
             'filtros' => [
@@ -169,7 +149,6 @@ class Dashboard extends BaseController
             ],
             'custo_operacao_meses' => $custo_operacao_meses,
             'ultimas_ordens'       => $ultimasOrdens,
-            'contratos_expirando'  => $contratosExp,
             'estoque_baixo'        => [],
             'relatorios_recentes'  => [],
         ];
