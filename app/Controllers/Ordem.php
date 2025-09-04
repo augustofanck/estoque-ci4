@@ -165,6 +165,14 @@ class Ordem extends BaseController
     public function store()
     {
         $payload = $this->request->getPost();
+
+        $temSegundo = ($payload['tem_segundo_par'] ?? '0') === '1';
+        if (!$temSegundo) {
+            $payload['valor_armacao_2'] = '0';
+            $payload['valor_lente_2'] = '0';
+            $payload['tipo_lente_2'] = '0';
+        }
+
         $payload = $this->normalizeMoneyArray($payload);
         $payload = $this->normalizeDatesForSave($payload);
 
@@ -194,6 +202,14 @@ class Ordem extends BaseController
     {
         $payload = $this->request->getPost();
         $payload['id'] = $id;
+
+        $temSegundo = ($payload['tem_segundo_par'] ?? '0') === '1';
+        if (!$temSegundo) {
+            $payload['valor_armacao_2'] = '0';
+            $payload['valor_lente_2']   = '0';
+            $payload['tipo_lente_2']    = '';
+        }
+
         $payload = $this->normalizeMoneyArray($payload);
         $payload = $this->normalizeDatesForSave($payload);
 

@@ -57,4 +57,31 @@ class OrdemModel extends Model
         'dia_nota'                     => 'permit_empty|valid_date[Y-m-d]',
         'nota_gerada' => 'permit_empty|in_list[0,1]',
     ];
+
+
+    protected $validationMessages = [
+        'cliente_id' => [
+            'required' => 'Selecione um cliente',
+            'is_natural_no_zero' => 'Cliente inválido',
+            'is_not_unique' => 'Cliente não encontrado'
+        ],
+        'data_compra' => [
+            'required' => 'Informe a data da compra.',
+            'valid_date' => 'Data da compra inválida.'
+        ],
+        'valor_venda' => [],
+        'valor_pago' => [],
+        'valor_entrada' => [],
+        'valor_armacao_1' => [],
+        'valor_armacao_2' => [],
+        'valor_lente_1' => [],
+        'valor_lente_2' => [],
+        'pagamento_laboratorio' => [],
+        'data_compra' => [],
+        'dia_pagamento_laboratorio' => [],
+        'data_recebimento_laboratorio' => [],
+        'data_entrega_oculos' => [],
+        'dia_nota' => [],
+        'nota_gerada' => [],
+    ];
 }

@@ -40,7 +40,7 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalCliente">
+                        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalCliente">
                             Novo
                         </button>
                     </div>
@@ -118,13 +118,21 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
         </div>
     </div>
 
+    <?php
+    $temSegundo = (old('tem_segundo_par') === '1')
+        || ((float)($ordem['valor_armacao_2'] ?? 0) > 0)
+        || ((float)($ordem['valor_lente_2']  ?? 0) > 0)
+        || (($ordem['tipo_lente_2'] ?? '') !== '');
+    ?>
+
     <!-- Itens e Lentes -->
     <div class="card mb-3">
         <div class="card-header fw-semibold">Itens e Lentes</div>
         <div class="card-body">
             <div class="row g-3">
+
                 <div class="col-md-3">
-                    <label class="form-label">Armação 1 (R$)</label>
+                    <label class="form-label">Armação (R$)</label>
                     <div class="input-group">
                         <span class="input-group-text">R$</span>
                         <input type="text" inputmode="decimal" name="valor_armacao_1" class="form-control"
@@ -132,17 +140,9 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                             value="<?= old('valor_armacao_1', $ordem['valor_armacao_1'] ?? '0,00') ?>">
                     </div>
                 </div>
+
                 <div class="col-md-3">
-                    <label class="form-label">Armação 2 (R$)</label>
-                    <div class="input-group">
-                        <span class="input-group-text">R$</span>
-                        <input type="text" inputmode="decimal" name="valor_armacao_2" class="form-control"
-                            placeholder="0,00"
-                            value="<?= old('valor_armacao_2', $ordem['valor_armacao_2'] ?? '0,00') ?>">
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Lente 1 (R$)</label>
+                    <label class="form-label">Lente (R$)</label>
                     <div class="input-group">
                         <span class="input-group-text">R$</span>
                         <input type="text" inputmode="decimal" name="valor_lente_1" class="form-control"
@@ -150,26 +150,57 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                             value="<?= old('valor_lente_1', $ordem['valor_lente_1'] ?? '0,00') ?>">
                     </div>
                 </div>
-                <div class="col-md-3">
-                    <label class="form-label">Lente 2 (R$)</label>
-                    <div class="input-group">
-                        <span class="input-group-text">R$</span>
-                        <input type="text" inputmode="decimal" name="valor_lente_2" class="form-control"
-                            placeholder="0,00"
-                            value="<?= old('valor_lente_2', $ordem['valor_lente_2'] ?? '0,00') ?>">
-                    </div>
-                </div>
+
                 <div class="col-md-6">
-                    <label class="form-label">Tipo de lente 1</label>
+                    <label class="form-label">Tipo de Lente</label>
                     <input type="text" name="tipo_lente_1" class="form-control"
                         placeholder="Ex.: monofocal / antirreflexo"
                         value="<?= old('tipo_lente_1', $ordem['tipo_lente_1'] ?? '') ?>">
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Tipo de lente 2</label>
-                    <input type="text" name="tipo_lente_2" class="form-control"
-                        placeholder="Ex.: multifocal / blue light"
-                        value="<?= old('tipo_lente_2', $ordem['tipo_lente_2'] ?? '') ?>">
+            </div>
+
+            <div id="grupoSegundoPar" class="<?= $temSegundo ? '' : 'mt-3 d-none' ?>">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Armação 2 (R$)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">R$</span>
+                            <input type="text" inputmode="decimal" name="valor_armacao_2"
+                                class="form-control" placeholder="0,00"
+                                value="<?= old('valor_armacao_2', $ordem['valor_armacao_2'] ?? '0,00') ?>"
+                                <?= $temSegundo ? '' : 'disabled' ?>>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Lente 2 (R$)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">R$</span>
+                            <input type="text" inputmode="decimal" name="valor_lente_2"
+                                class="form-control" placeholder="0,00"
+                                value="<?= old('valor_lente_2', $ordem['valor_lente_2'] ?? '0,00') ?>"
+                                <?= $temSegundo ? '' : 'disabled' ?>>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Tipo de Lente 2</label>
+                        <input type="text" name="tipo_lente_2" class="form-control"
+                            placeholder="Ex.: monofocal / antirreflexo"
+                            value="<?= old('tipo_lente_2', $ordem['tipo_lente_2'] ?? '') ?>"
+                            <?= $temSegundo ? '' : 'disabled' ?>>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center mb-2 mt-3">
+                <div class="form-check form-switch ms-auto">
+                    <input type="hidden" name="tem_segundo_par" value="0">
+                    <input class="form-check-input" type="checkbox" id="tem_segundo_par"
+                        name="tem_segundo_par" value="1" <?= $temSegundo ? 'checked' : '' ?>>
+                    <label class="form-check-label ms-2" for="tem_segundo_par">
+                        Promoção: ativar segundo par (compre 1 leve 2)
+                    </label>
                 </div>
             </div>
         </div>
@@ -215,9 +246,9 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
     <div class="card mb-4">
         <div class="card-header fw-semibold">Fiscal</div>
         <div class="card-body">
-            <div class="row g-3 align-items-end">
+            <div class="row g-3 align-items-center">
                 <div class="col-md-3">
-                    <div class="form-check mt-2">
+                    <div class="form-check form-switch mt-2">
                         <input class="form-check-input" type="checkbox" id="nota_gerada" name="nota_gerada"
                             <?= old('nota_gerada', $ordem['nota_gerada'] ?? 0) ? 'checked' : '' ?>>
                         <label class="form-check-label" for="nota_gerada">Nota gerada?</label>
@@ -256,6 +287,23 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
     });
 </script>
 <?= $this->renderSection('page_scripts') ?>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const chk = document.getElementById('tem_segundo_par');
+        const wrap = document.getElementById('grupoSegundoPar');
+        if (!chk || !wrap) return;
+
+        function toggleSegundoPar() {
+            const on = chk.checked;
+            wrap.classList.toggle('d-none', !on);
+            wrap.querySelectorAll('input').forEach(el => el.disabled = !on);
+        }
+
+        chk.addEventListener('change', toggleSegundoPar);
+        toggleSegundoPar(); // estado inicial
+    });
+</script>
+
 
 <!-- Modal Novo Cliente -->
 <div class="modal fade" id="modalCliente" tabindex="-1" aria-hidden="true">
