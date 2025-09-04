@@ -55,4 +55,14 @@
     </div>
 </form>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/inputmask@5.0.9/dist/inputmask.min.js"></script>
+<script src="<?= base_url('js/form-masks.js') ?>?v=<?= urlencode((string)ENVIRONMENT) ?>"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.FormsMasks) FormsMasks.applyAll(document);
+    });
+</script>
+<?= $this->renderSection('page_scripts') ?>
+
 <?= $this->endSection() ?>

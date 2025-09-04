@@ -246,6 +246,17 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
     </div>
 </form>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/inputmask@5.0.9/dist/inputmask.min.js"></script>
+<link rel="stylesheet" href="<?= base_url('public/css/app.css') ?>">
+<script src="<?= base_url('js/form-masks.js') ?>?v=<?= urlencode((string)ENVIRONMENT) ?>"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.FormsMasks) FormsMasks.applyAll(document);
+    });
+</script>
+<?= $this->renderSection('page_scripts') ?>
+
 <!-- Modal Novo Cliente -->
 <div class="modal fade" id="modalCliente" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
