@@ -7,16 +7,18 @@
     <?= csrf_field() ?>
     <div class="row g-3">
         <div class="col-md-6">
-            <label class="form-label">Nome*</label>
+            <label class="form-label">Nome <span class="text-danger">*</span></label>
             <input name="nome" class="form-control" required value="<?= esc($cliente['nome'] ?? '') ?>">
         </div>
         <div class="col-md-3">
-            <label class="form-label">Documento</label>
-            <input name="documento" class="form-control" value="<?= esc($cliente['documento'] ?? '') ?>">
+            <label class="form-label">CPF <span class="text-danger">*</span></label>
+            <input id="documento" name="documento" class="form-control" inputmode="numeric"
+                placeholder="000.000.000-00" value="<?= esc($cliente['documento'] ?? '') ?>">
         </div>
         <div class="col-md-3">
-            <label class="form-label">Telefone</label>
-            <input name="telefone" class="form-control" value="<?= esc($cliente['telefone'] ?? '') ?>">
+            <label class="form-label">Celular (Telefone)</label>
+            <input id="telefone" name="telefone" class="form-control" inputmode="numeric"
+                placeholder="(00) 00000-0000" value="<?= esc($cliente['telefone'] ?? '') ?>">
         </div>
 
         <div class="col-md-6">
@@ -38,7 +40,8 @@
         </div>
         <div class="col-md-3">
             <label class="form-label">CEP</label>
-            <input name="cep" class="form-control" value="<?= esc($cliente['cep'] ?? '') ?>">
+            <input id="cep" name="cep" class="form-control" inputmode="numeric"
+                placeholder="00000-000" value="<?= esc($cliente['cep'] ?? '') ?>">
         </div>
         <div class="col-md-3">
             <label class="form-label">Término do contrato</label>

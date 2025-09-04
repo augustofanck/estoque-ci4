@@ -241,6 +241,41 @@
                     showMaskOnHover: false
                 })
                 .mask(document.querySelectorAll(".date-mask"));
+
+            const docCpf = document.getElementById('documento'); // máscara CPF
+            if (!docCpf) return;
+
+            Inputmask({
+                mask: "999.999.999-99",
+                clearIncomplete: true,
+                showMaskOnFocus: true,
+                showMaskOnHover: false,
+                onBeforePaste: v => (v || "").replace(/\D+/g, "")
+            }).mask(docCpf);
+
+            const cel = document.getElementById('telefone');
+            if (!cel) return;
+
+            Inputmask({
+                mask: ["(99) 9999-9999", "(99) 99999-9999"], // 10 ou 11 dígitos
+                keepStatic: true,
+                clearIncomplete: true,
+                showMaskOnFocus: true,
+                showMaskOnHover: false,
+                onBeforePaste: v => (v || "").replace(/\D+/g, "")
+            }).mask(cel);
+
+            const cep = document.getElementById('cep');
+            if (!cep) return;
+
+            Inputmask({
+                mask: "99999-999",
+                keepStatic: true,
+                clearIncomplete: true,
+                showMaskOnFocus: true,
+                showMaskOnHover: false,
+                onBeforePaste: v => (v || "").replace(/\D+/g, "")
+            }).mask(cep);
         });
     </script>
 </body>

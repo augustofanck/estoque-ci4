@@ -38,6 +38,36 @@ class Clientes extends BaseController
         return $v;
     }
 
+    private function onlyDigits(?string $v): ?string
+    {
+        $d = preg_replace('/\D+/', '', (string)$v);
+        return $d === '' ? null : $d;
+    }
+
+    private function formatCpf(?string $v): string
+    {
+        $d = preg_replace('/\D+/', '', (string)$v);
+        if (strlen($d) !== 11) return (string)$v;
+        return preg_replace('/(\d{3})(\d{3})(\d{3})(\d{2})/', '$1.$2.$3-$4', $d);
+    }
+
+    private function formatPhone(?string $v): string
+    {
+        $d = preg_replace('/\D+/', '', (string)$v);
+        if (strlen($d) === 11) return preg_replace('/(\d{2})(\d{5})(\d{4})/', '($1) $2-$3', $d);
+        if (strlen($d) === 10) return preg_replace('/(\d{2})(\d{4})(\d{4})/', '($1) $2-$3', $d);
+        return (string)$v;
+    }
+
+    private function formatCep(?string $v): string
+    {
+        $d = preg_replace('/\D+/', '', (string)$v);
+        if (strlen($d) !== 8) return (string)$v;
+        return preg_replace('/(\d{5})(\d{3})/', '$1-$2', $d);
+    }
+
+
+
     public function index()
     {
         $q     = trim((string)$this->request->getGet('q'));
@@ -70,6 +100,9 @@ class Clientes extends BaseController
     {
         $data = $this->request->getPost();
         $data['termino_contrato'] = $this->toDbDate($data['termino_contrato'] ?? null);
+        $data['documento'] = $this->onlyDigits($data['documento'] ?? null);
+        $data['telefone'] = $this->onlyDigits($data['telefone'] ?? null);
+        $data['cep'] = $this->onlyDigits($data['cep'] ?? null);
 
         if (!$this->model->save($data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());
@@ -82,6 +115,9 @@ class Clientes extends BaseController
         $row = $this->model->find($id);
         if (!$row) return redirect()->to(site_url('clientes'))->with('errors', ['Registro não encontrado.']);
         $row['termino_contrato'] = $this->fromDbDate($row['termino_contrato'] ?? '');
+        $row['documento'] = $this->formatCpf($row['documento'] ?? '');
+        $row['telefone'] = $this->formatPhone($row['telefone'] ?? '');
+        $row['cep'] = $this->formatCep($row['cep'] ?? '');
         return view('clientes/form', ['title' => 'Editar Cliente', 'cliente' => $row]);
     }
 
@@ -90,6 +126,10 @@ class Clientes extends BaseController
         $data = $this->request->getPost();
         $data['id'] = $id;
         $data['termino_contrato'] = $this->toDbDate($data['termino_contrato'] ?? null);
+        $data['documento'] = $this->onlyDigits($data['documento'] ?? null);
+        $data['telefone'] = $this->onlyDigits($data['telefone'] ?? null);
+        $data['cep'] = $this->onlyDigits($data['cep'] ?? null);
+
 
         if (!$this->model->save($data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());

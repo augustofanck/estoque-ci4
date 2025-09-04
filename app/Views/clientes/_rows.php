@@ -2,7 +2,15 @@
         <tr>
             <td><?= esc($c['id']) ?></td>
             <td><?= esc($c['nome']) ?></td>
-            <td><?= esc($c['documento'] ?? '—') ?></td>
+            <td>
+                <?php
+                $cpf = $c['documento'] ?? '';
+                $cpfFmt = preg_match('/^\d{11}$/', $cpf)
+                    ? preg_replace('/(\d{3})(\d{3})(\d{3})(\d{2})/', '$1.$2.$3-$4', $cpf)
+                    : $cpf;
+                echo esc($cpfFmt ?: '—');
+                ?>
+            </td>
             <td><?= esc($c['telefone'] ?? '—') ?></td>
             <td><?= esc($c['email'] ?? '—') ?></td>
             <td><?= esc(($c['cidade'] ?? '—') . (isset($c['estado']) && $c['estado'] ? '/' . $c['estado'] : '')) ?></td>
