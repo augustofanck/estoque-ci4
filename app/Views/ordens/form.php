@@ -29,10 +29,21 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                         value="<?= old('ordem_servico', $ordem['ordem_servico'] ?? '') ?>">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Nome do cliente</label>
-                    <input type="text" name="nome_cliente" class="form-control"
-                        placeholder="Cliente"
-                        value="<?= old('nome_cliente', $ordem['nome_cliente'] ?? '') ?>">
+                    <label class="form-label">Cliente*</label>
+                    <div class="input-group">
+                        <select name="cliente_id" id="cliente_id" class="form-select" required>
+                            <option value="">Selecione um cliente...</option>
+                            <?php foreach (($clientes ?? []) as $c): ?>
+                                <option value="<?= (int)$c['id'] ?>"
+                                    <?= (isset($ordem['cliente_id']) && (int)$ordem['cliente_id'] === (int)$c['id']) ? 'selected' : '' ?>>
+                                    <?= esc($c['nome']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalCliente">
+                            Novo
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -234,5 +245,144 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
         <button class="btn btn-primary"><?= $isEdit ? 'Salvar alterações' : 'Salvar' ?></button>
     </div>
 </form>
+
+<!-- Modal Novo Cliente -->
+<div class="modal fade" id="modalCliente" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Novo Cliente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form id="formCliente" action="<?= site_url('clientes/store') ?>" method="post">
+                <div class="modal-body">
+                    <?= csrf_field() ?>
+                    <!-- Captura o nome do token para atualizar via JS -->
+                    <script>
+                        const CSRF_NAME = "<?= csrf_token() ?>";
+                    </script>
+
+                    <div id="clienteErrors" class="alert alert-danger d-none"></div>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nome*</label>
+                            <input name="nome" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">CPF</label>
+                            <input id="cli_documento" name="documento" class="form-control" placeholder="000.000.000-00">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Celular</label>
+                            <input id="cli_telefone" name="telefone" class="form-control" placeholder="(00) 00000-0000">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">E-mail</label>
+                            <input name="email" type="email" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Endereço</label>
+                            <input name="endereco" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Cidade</label>
+                            <input name="cidade" class="form-control">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">UF</label>
+                            <input name="estado" class="form-control" maxlength="2">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">CEP</label>
+                            <input id="cli_cep" name="cep" class="form-control" placeholder="00000-000">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Término do contrato</label>
+                            <input name="termino_contrato" class="form-control date-mask" placeholder="dd/mm/aaaa">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancelar</button>
+                    <button class="btn btn-primary" type="submit">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Máscaras do modal (reutiliza Inputmask já carregado no layout)
+        const doc = document.getElementById('cli_documento');
+        if (doc) Inputmask({
+            mask: "999.999.999-99",
+            clearIncomplete: true
+        }).mask(doc);
+
+        const tel = document.getElementById('cli_telefone');
+        if (tel) Inputmask({
+            mask: ["(99) 9999-9999", "(99) 99999-9999"],
+            keepStatic: true,
+            clearIncomplete: true
+        }).mask(tel);
+
+        const cep = document.getElementById('cli_cep');
+        if (cep) Inputmask({
+            mask: "99999-999",
+            clearIncomplete: true
+        }).mask(cep);
+
+        const form = document.getElementById('formCliente');
+        const errorsBox = document.getElementById('clienteErrors');
+        const modalEl = document.getElementById('modalCliente');
+        const clienteSelect = document.getElementById('cliente_id');
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            errorsBox.classList.add('d-none');
+            errorsBox.innerHTML = '';
+
+            const fd = new FormData(form);
+            const res = await fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: fd
+            });
+
+            const json = await res.json().catch(() => ({}));
+
+            // Atualiza CSRF do form (se o framework estiver regenerando)
+            if (json.csrf && typeof CSRF_NAME !== 'undefined') {
+                const csrfInput = form.querySelector(`input[name="${CSRF_NAME}"]`);
+                if (csrfInput) csrfInput.value = json.csrf;
+            }
+
+            if (!res.ok || !json.ok) {
+                const errs = json.errors || {
+                    geral: 'Erro ao salvar.'
+                };
+                errorsBox.innerHTML = Object.values(errs).map(e => `<div>${e}</div>`).join('');
+                errorsBox.classList.remove('d-none');
+                return;
+            }
+
+            // Sucesso: adiciona no select e seleciona
+            if (clienteSelect) {
+                const opt = new Option(json.nome, json.id, true, true);
+                clienteSelect.add(opt);
+                clienteSelect.dispatchEvent(new Event('change'));
+            }
+
+            // Fecha o modal e limpa o formulário
+            const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+            modal.hide();
+            form.reset();
+        });
+    });
+</script>
 
 <?= $this->endSection() ?>

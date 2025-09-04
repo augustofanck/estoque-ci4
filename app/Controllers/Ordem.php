@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Controllers\BaseController;
 use App\Models\OrdemModel;
+use App\Models\ClienteModel;
 
 class Ordem extends BaseController
 {
@@ -74,23 +75,24 @@ class Ordem extends BaseController
 
     public function index()
     {
-        $q         = trim((string) $this->request->getGet('q'));
-        $field     = $this->request->getGet('field') ?: 'nome_cliente';
+        $q     = trim((string) $this->request->getGet('q'));
+        $field = $this->request->getGet('field') ?: 'nome_cliente';
         $vendedor  = trim((string) $this->request->getGet('vendedor')); // << filtro de vendedor
 
-        // whitelist
-        $allowed = ['nome_cliente', 'ordem_servico', 'vendedor']; // << permite buscar por vendedor via q+field
-        if (!in_array($field, $allowed, true)) $field = 'nome_cliente';
+        $map = [
+            'nome_cliente'  => 'c.nome',
+            'ordem_servico' => 'ordens.ordem_servico',
+            'vendedor'      => 'ordens.vendedor',
+        ];
+        $col = $map[$field] ?? 'c.nome';
 
-        $builder = $this->model->orderBy('id', 'DESC');
+        $builder = $this->model
+            ->select('ordens.*, c.nome AS cliente')
+            ->join('clientes c', 'c.id = ordens.cliente_id', 'left')
+            ->orderBy('ordens.id', 'DESC');
 
         if ($q !== '') {
-            $builder->like($field, $q);
-        }
-
-        // aplica filtro específico por vendedor (like para parcial)
-        if ($vendedor !== '') {
-            $builder->like('vendedor', $vendedor);
+            $builder->like($col, $q);
         }
 
         $ordens = $builder->findAll();
@@ -110,9 +112,14 @@ class Ordem extends BaseController
 
     public function create()
     {
-        $data['title'] = 'Nova Ordem';
-        $data['ordem'] = [];
-        return view('ordens/form', $data);
+        $clientes = (new ClienteModel())
+            ->select('id, nome')->orderBy('nome', 'ASC')->findAll();
+
+        return view('ordens/form', [
+            'title'   => 'Nova Ordem',
+            'ordem'   => [],
+            'clientes' => $clientes,
+        ]);
     }
 
     private function normalizeMoney(string $raw): string
@@ -173,9 +180,14 @@ class Ordem extends BaseController
         if (!$ordem) {
             return redirect()->to(site_url('ordens'))->with('errors', ['Registro não encontrado.']);
         }
-        $data['title'] = 'Editar Ordem';
-        $data['ordem'] = $this->formatDatesForView($ordem);
-        return view('ordens/form', $data);
+
+        $clientes = (new ClienteModel())->select('id, nome')->orderBy('nome', 'ASC')->findAll();
+
+        return view('ordens/form', [
+            'title'     => 'Editar Ordem',
+            'ordem'     => $ordem,
+            'clientes'  => $clientes,
+        ]);
     }
 
     public function update($id)

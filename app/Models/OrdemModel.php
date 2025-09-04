@@ -13,6 +13,7 @@ class OrdemModel extends Model
     protected $useTimestamps    = true;
 
     protected $allowedFields    = [
+        'cliente_id',
         'status',
         'data_compra',
         'ordem_servico',
@@ -39,6 +40,7 @@ class OrdemModel extends Model
     ];
 
     protected $validationRules = [
+        'cliente_id' => 'required|is_natural_no_zero|is_not_unique[clientes.id]',
         'data_compra'   => 'permit_empty|valid_date',
         'valor_venda'   => 'required|decimal',
         'valor_pago'    => 'permit_empty|decimal',
