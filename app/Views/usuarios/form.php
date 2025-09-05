@@ -21,18 +21,18 @@ $action = $isEdit ? site_url('usuarios/' . $user['id'] . '/update') : site_url('
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-6">
-                    <label class="form-label">Nome*</label>
+                    <label class="form-label">Nome <span class="text-danger">*</span></label>
                     <input name="name" class="form-control" required
                         value="<?= esc(old('name', $user['name'] ?? '')) ?>">
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">E-mail*</label>
+                    <label class="form-label">E-mail <span class="text-danger">*</span></label>
                     <input name="email" type="email" class="form-control" required
                         value="<?= esc(old('email', $user['email'] ?? '')) ?>">
                 </div>
 
                 <div class="col-md-4">
-                    <label class="form-label">Papel*</label>
+                    <label class="form-label">Cargo <span class="text-danger">*</span></label>
                     <?php $roleVal = (string) old('role', (string)($user['role'] ?? '0')); ?>
                     <select name="role" class="form-select" required>
                         <option value="2" <?= $roleVal === '2' ? 'selected' : '' ?>>Admin</option>
@@ -52,14 +52,14 @@ $action = $isEdit ? site_url('usuarios/' . $user['id'] . '/update') : site_url('
                 <div class="col-md-4"></div>
 
                 <div class="col-md-6">
-                    <label class="form-label"><?= $isEdit ? 'Nova senha' : 'Senha*' ?></label>
+                    <label class="form-label"><?= $isEdit ? 'Nova senha' : 'Senha <span class="text-danger">*</span>' ?></label>
                     <input name="password" type="password" class="form-control" <?= $isEdit ? '' : 'required' ?>>
                     <?php if ($isEdit): ?>
                         <div class="form-text">Deixe em branco para manter a senha atual.</div>
                     <?php endif; ?>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label"><?= $isEdit ? 'Confirmar nova senha' : 'Confirmar senha*' ?></label>
+                    <label class="form-label"><?= $isEdit ? 'Confirmar nova senha' : 'Confirmar senha <span class="text-danger">*</span>' ?></label>
                     <input name="password_confirm" type="password" class="form-control" <?= $isEdit ? '' : 'required' ?>>
                 </div>
             </div>

@@ -40,5 +40,28 @@
                 </div>
             </div>
         </div>
+
+        <?php if ((int) session('role') === 2): ?>
+            <div class="mb-2">
+                <button class="btn btn-light btn-toggle"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#secUsuarios"
+                    aria-expanded="<?= $seg1 === 'usuarios' ? 'true' : 'false' ?>">
+                    Usuários
+                </button>
+                <div id="secUsuarios" class="collapse <?= $showIf('usuarios') ?>">
+                    <div class="list-group ms-2 mt-2">
+                        <a href="<?= site_url('usuarios') ?>"
+                            class="list-group-item list-group-item-action <?= $is('usuarios') && $seg2 === '' ? 'active' : '' ?>">
+                            Listar
+                        </a>
+                        <a href="<?= site_url('usuarios/create') ?>"
+                            class="list-group-item list-group-item-action <?= $is('usuarios', 'create') ? 'active' : '' ?>">
+                            Novo
+                        </a>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
     </div>
 </div>

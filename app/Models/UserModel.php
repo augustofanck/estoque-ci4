@@ -28,5 +28,9 @@ class UserModel extends Model
         'role' => [
             'in_list' => 'Papel inválido.'
         ],
+        'password_hash' => [
+            'permit_empty' => 'A senha não pode estar vazia.',
+            'min_length' => 'A senha deve conter ao menos 6 caracteres.'
+        ]
     ];
 }
