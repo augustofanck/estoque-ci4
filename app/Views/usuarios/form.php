@@ -10,7 +10,11 @@ $action = $isEdit ? site_url('usuarios/' . $user['id'] . '/update') : site_url('
 
 <?php if ($errors = session()->getFlashdata('errors')): ?>
     <div class="alert alert-danger">
-        <ul class="mb-0"><?php foreach ($errors as $e): ?><li><?= esc($e) ?></li><?php endforeach; ?></ul>
+        <ul class="mb-0">
+            <?php foreach ($errors as $e): ?>
+                <li><?= esc($e) ?></li>
+            <?php endforeach; ?>
+        </ul>
     </div>
 <?php endif; ?>
 

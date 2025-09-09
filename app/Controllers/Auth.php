@@ -3,7 +3,7 @@
 namespace App\Controllers;
 
 use App\Controllers\BaseController;
-use App\Models\UserModel;
+use App\Models\UsuarioModel;
 
 class Auth extends BaseController
 {
@@ -29,7 +29,7 @@ class Auth extends BaseController
             return redirect()->back()->withInput()->with('errors', ['Dados inválidos.']);
         }
 
-        $user = (new UserModel())->where('email', $email)->first();
+        $user = (new UsuarioModel())->where('email', $email)->first();
         if (!$user || !password_verify($pass, $user['password_hash']) || (int)($user['is_active'] ?? 0) !== 1) {
             return redirect()->back()->withInput()->with('errors', ['Credenciais inválidas.']);
         }

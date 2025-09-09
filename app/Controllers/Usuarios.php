@@ -3,23 +3,22 @@
 namespace App\Controllers;
 
 use App\Controllers\BaseController;
-use App\Models\UserModel;
+use App\Models\UsuarioModel;
 
 class Usuarios extends BaseController
 {
-    protected UserModel $model;
+    protected UsuarioModel $model;
 
     public function __construct()
     {
         helper(['form', 'url', 'text']);
-        $this->model = new UserModel();
+        $this->model = new UsuarioModel();
     }
 
     private function ensureAdmin()
     {
         if ((int) session('role') !== 2) {
-            return redirect()->to(site_url('/'))
-                ->with('errors', ['Acesso negado.']);
+            return redirect()->to(site_url('/'))->with('errors', ['Acesso negado.']);
         }
         return null;
     }
@@ -44,7 +43,7 @@ class Usuarios extends BaseController
 
         return view('usuarios/form', [
             'title' => 'Novo Usuário',
-            'user'  => [],
+            'user' => [],
         ]);
     }
 
@@ -52,29 +51,11 @@ class Usuarios extends BaseController
     {
         if ($r = $this->ensureAdmin()) return $r;
 
-        $post = $this->request->getPost();
+        $data = $this->request->getPost();
+        $data['is_active'] = isset($data['is_active']) ? 1 : 0;
 
-        $rules = [
-            'name'     => 'required|min_length[2]|max_length[150]',
-            'email'    => 'required|valid_email|max_length[150]|is_unique[users.email]',
-            'role'     => 'required|in_list[0,1,2]',
-            'password' => 'required|min_length[6]',
-            'password_confirm' => 'required|matches[password]',
-        ];
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
-        }
-
-        $payload = [
-            'name'          => trim($post['name']),
-            'email'         => strtolower(trim($post['email'])),
-            'role'          => (int) $post['role'],
-            'is_active'     => isset($post['is_active']) ? 1 : 0,
-            'password_hash' => password_hash($post['password'], PASSWORD_DEFAULT),
-        ];
-
-        if (!$this->model->save($payload)) {
+        $this->model->setValidationRules($this->model->getRules('create'));
+        if (!$this->model->save($data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());
         }
 
@@ -92,7 +73,7 @@ class Usuarios extends BaseController
 
         return view('usuarios/form', [
             'title' => 'Editar Usuário',
-            'user'  => $user,
+            'user' => $user,
         ]);
     }
 
@@ -100,37 +81,12 @@ class Usuarios extends BaseController
     {
         if ($r = $this->ensureAdmin()) return $r;
 
-        $post = $this->request->getPost();
+        $data = $this->request->getPost();
+        $data['id']        = (int) $id;
+        $data['is_active'] = isset($data['is_active']) ? 1 : 0;
 
-        $rules = [
-            'name'  => 'required|min_length[2]|max_length[150]',
-            'email' => "required|valid_email|max_length[150]|is_unique[users.email,id,{$id}]",
-            'role'  => 'required|in_list[0,1,2]',
-        ];
-
-        // senha opcional no update
-        if (!empty($post['password'])) {
-            $rules['password'] = 'min_length[6]';
-            $rules['password_confirm'] = 'matches[password]';
-        }
-
-        if (!$this->validate($rules)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
-        }
-
-        $payload = [
-            'id'        => (int) $id,
-            'name'      => trim($post['name']),
-            'email'     => strtolower(trim($post['email'])),
-            'role'      => (int) $post['role'],
-            'is_active' => isset($post['is_active']) ? 1 : 0,
-        ];
-
-        if (!empty($post['password'])) {
-            $payload['password_hash'] = password_hash($post['password'], PASSWORD_DEFAULT);
-        }
-
-        if (!$this->model->save($payload)) {
+        $this->model->setValidationRules($this->model->getRules('update'));
+        if (!$this->model->save($data)) {
             return redirect()->back()->withInput()->with('errors', $this->model->errors());
         }
 

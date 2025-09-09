@@ -4,7 +4,7 @@ namespace App\Models;
 
 use CodeIgniter\Model;
 
-class UserModel extends Model
+class UsuarioModel extends Model
 {
     protected $table            = 'users';
     protected $primaryKey       = 'id';
@@ -13,6 +13,26 @@ class UserModel extends Model
     protected $useTimestamps    = true;
 
     protected $allowedFields    = ['name', 'email', 'password_hash', 'role'];
+
+    public function getRules(string $context = 'create'): array
+    {
+        $base = [
+            'name'       => 'required|min_length[2]|max_length[150]',
+            'email'      => 'required|valid_email|max_length[150]|is_unique[users.email,id,{id}]',
+            'role'       => 'required|in_list[0,1,2]',
+            'is_active'  => 'permit_empty|in_list[0,1]',
+        ];
+
+        if ($context === 'create') {
+            $base['password']         = 'required|min_length[6]';
+            $base['password_confirm'] = 'required|matches[password]';
+        } else {
+            $base['password']         = 'permit_empty|min_length[6]';
+            $base['password_confirm'] = 'permit_empty|matches[password]';
+        }
+
+        return $base;
+    }
 
     protected $validationRules = [
         'name'     => 'required|min_length[2]|max_length[150]',
