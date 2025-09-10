@@ -40,7 +40,7 @@
         </div>
         <div class="row mt-2">
             <div class="col text-muted small">
-                Busca em tempo real. Intervalo por <em>data_compra</em> somente após clicar em “Aplicar”.
+                Busca em tempo real.
             </div>
         </div>
     </div>
