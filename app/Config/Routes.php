@@ -42,7 +42,11 @@ $routes->group('', ['filter' => 'webauth'], static function ($routes) {
 
     // Usuários: apenas admin (2)
     $routes->group('usuarios', ['filter' => 'role:min:2'], static function ($r) {
-        $r->get('/',             'Usuarios::index');
-        $r->post('(:num)/role',  'Usuarios::changeRole/$1');
+        $r->get('/',              'Usuarios::index');
+        $r->get('create',         'Usuarios::create');
+        $r->post('store',         'Usuarios::store');
+        $r->get('(:num)/edit',    'Usuarios::edit/$1');
+        $r->post('(:num)/update', 'Usuarios::update/$1');
+        $r->get('(:num)/delete',  'Usuarios::delete/$1');
     });
 });

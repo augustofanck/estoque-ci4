@@ -75,9 +75,16 @@ class Ordem extends BaseController
 
     public function index()
     {
-        $q     = trim((string) $this->request->getGet('q'));
-        $field = $this->request->getGet('field') ?: 'nome_cliente';
-        $vendedor  = trim((string) $this->request->getGet('vendedor')); // << filtro de vendedor
+        $q        = trim((string) $this->request->getGet('q'));
+        $field    = $this->request->getGet('field') ?: 'nome_cliente';
+        $vendedor = trim((string) $this->request->getGet('vendedor'));
+
+        // intervalo de datas (somente se apply_date=1)
+        $applyDate    = (string) $this->request->getGet('apply_date') === '1';
+        $dataIniRaw   = $this->request->getGet('data_ini');
+        $dataFimRaw   = $this->request->getGet('data_fim');
+        $dataIni      = $this->toDbDate($dataIniRaw);
+        $dataFim      = $this->toDbDate($dataFimRaw);
 
         $map = [
             'nome_cliente'  => 'c.nome',
@@ -95,6 +102,22 @@ class Ordem extends BaseController
             $builder->like($col, $q);
         }
 
+        if ($vendedor !== '') {
+            $builder->where('ordens.vendedor', $vendedor);
+        }
+
+        // FILTRO DE DATA: data_compra
+        if ($applyDate) {
+            if ($dataIni && $dataFim) {
+                $builder->where('ordens.data_compra >=', $dataIni . ' 00:00:00')
+                    ->where('ordens.data_compra <=', $dataFim . ' 23:59:59');
+            } elseif ($dataIni) {
+                $builder->where('ordens.data_compra >=', $dataIni . ' 00:00:00');
+            } elseif ($dataFim) {
+                $builder->where('ordens.data_compra <=', $dataFim . ' 23:59:59');
+            }
+        }
+
         $ordens = $builder->findAll();
 
         if ($this->request->isAJAX()) {
@@ -102,13 +125,18 @@ class Ordem extends BaseController
         }
 
         return view('ordens/index', [
-            'title'    => 'Ordens / Estoque',
-            'ordens'   => $ordens,
-            'q'        => $q,
-            'field'    => $field,
-            'vendedor' => $vendedor,
+            'title'       => 'Ordens / Estoque',
+            'ordens'      => $ordens,
+            'q'           => $q,
+            'field'       => $field,
+            'vendedor'    => $vendedor,
+            'data_ini'    => $dataIni ?: '',
+            'data_fim'    => $dataFim ?: '',
+            'apply_date'  => $applyDate ? '1' : '0',
         ]);
     }
+
+
 
     public function create()
     {

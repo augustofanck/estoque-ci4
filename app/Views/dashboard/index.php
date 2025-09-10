@@ -3,15 +3,23 @@
 
 <div class="d-flex align-items-center justify-content-between mb-3">
     <h4 class="mb-0">Dashboard</h4>
+    <?php $kpiScope = $kpi_scope ?? 'dia';
+    $toggleTo = $kpiScope === 'dia' ? 'mes' : 'dia';
+    $toggleLabel = $kpiScope === 'dia' ? 'Ver valores do mês' : 'Ver valores do dia';
+    $qs = $_GET;
+    $qs['kpi'] = $toggleTo;
+    $toggleUrl = current_url() . '?' . http_build_query($qs);
+    ?>
     <div class="d-flex gap-2">
         <a href="<?= site_url('ordens/create') ?>" class="btn btn-primary">Nova Ordem</a>
         <a href="<?= site_url('clientes/create') ?>" class="btn btn-outline-secondary">Novo Cliente</a>
     </div>
+    <a href="<?= esc($toggleUrl) ?>" class="btn btn-sm btn-outline-secondary"><?= esc($toggleLabel) ?></a>
 </div>
 
 <?php
 $lucro = (float)($stats['valor_lucro'] ?? 0);
-$lucroClass = $lucro >= 0 ? 'text-success' : 'text-danger';
+$lucroClass = $stats['lucro_class'] ?? ($lucro >= 0 ? 'text-success' : 'text-danger');
 ?>
 
 <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xxl-5 g-3 mb-3">
@@ -51,7 +59,7 @@ $lucroClass = $lucro >= 0 ? 'text-success' : 'text-danger';
                 <div class="card-body">
                     <div class="text-muted small">Ordens (total)</div>
                     <div class="display-6 fw-semibold"><?= esc($stats['ordens_total'] ?? 0) ?></div>
-                    <div class="small text-muted">Período atual</div>
+                    <div class="small text-muted"><?= esc($stats['periodo_label'] ?? '') ?></div>
                 </div>
             </div>
         </div>
@@ -63,7 +71,7 @@ $lucroClass = $lucro >= 0 ? 'text-success' : 'text-danger';
                     <div class="display-6 fw-semibold">
                         R$ <?= number_format((float)($stats['faturamento_estimado'] ?? 0), 2, ',', '.') ?>
                     </div>
-                    <div class="small text-muted">Mês atual</div>
+                    <div class="small text-muted"><?= esc($stats['periodo_label'] ?? '') ?></div>
                 </div>
             </div>
         </div>
@@ -75,7 +83,7 @@ $lucroClass = $lucro >= 0 ? 'text-success' : 'text-danger';
                     <div class="display-6 fw-semibold">
                         R$ <?= number_format((float)($stats['valor_pago'] ?? 0), 2, ',', '.') ?>
                     </div>
-                    <div class="small text-muted">Mês atual</div>
+                    <div class="small text-muted"><?= esc($stats['periodo_label'] ?? '') ?></div>
                 </div>
             </div>
         </div>
@@ -104,28 +112,100 @@ $lucroClass = $lucro >= 0 ? 'text-success' : 'text-danger';
             </div>
         </div>
 
+        <div class="col-12">
+            <div class="text-end small text-muted">
+                Custo do dia anterior: R$ <?= number_format((float)($stats['custo_dia_anterior'] ?? 0), 2, ',', '.') ?>
+            </div>
+        </div>
+
     <?php endif; ?>
 
 </div>
 
-
-<!-- Custo da Operação por mês (lista) -->
+<!-- Últimos 14 dias (lista colapsável com KPIs) -->
 <div class="card shadow-sm mb-3">
     <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <strong>Custo da Operação por mês</strong>
+        <strong>Últimos 14 dias</strong>
+        <span class="small text-muted">Toque para detalhar</span>
     </div>
     <div class="card-body p-0">
-        <?php if (!empty($custo_operacao_meses)): ?>
-            <ul class="list-group list-group-flush">
-                <?php foreach ($custo_operacao_meses as $m): ?>
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        <span class="fw-semibold"><?= esc($m['label']) ?></span>
-                        <span class="fw-semibold">R$ <?= number_format((float)$m['valor'], 2, ',', '.') ?></span>
-                    </li>
+        <?php if (!empty($dias_ultimos)): ?>
+            <div class="accordion" id="accUltimosDias">
+                <?php foreach ($dias_ultimos as $i => $d):
+                    $itemId = 'dia' . $i;
+                ?>
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="h-<?= $itemId ?>">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                data-bs-target="#c-<?= $itemId ?>" aria-expanded="false"
+                                aria-controls="c-<?= $itemId ?>">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <span class="fw-semibold"><?= esc($d['label']) ?></span>
+                                    <span class="small text-muted">
+                                        Lucro: R$ <?= number_format((float)$d['lucro'], 2, ',', '.') ?>
+                                    </span>
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="c-<?= $itemId ?>" class="accordion-collapse collapse" aria-labelledby="h-<?= $itemId ?>"
+                            data-bs-parent="#accUltimosDias">
+                            <div class="accordion-body">
+                                <div class="row row-cols-1 row-cols-md-3 row-cols-xxl-5 g-3">
+                                    <div class="col">
+                                        <div class="border rounded p-2 h-100">
+                                            <div class="text-muted small">Ordens (total)</div>
+                                            <div class="fs-4 fw-semibold"><?= esc($d['ordens']) ?></div>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="border rounded p-2 h-100">
+                                            <div class="text-muted small">Faturamento (estimado)</div>
+                                            <div class="fs-4 fw-semibold">
+                                                R$ <?= number_format((float)$d['faturamento'], 2, ',', '.') ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="border rounded p-2 h-100">
+                                            <div class="text-muted small">Valor Recebido</div>
+                                            <div class="fs-4 fw-semibold">
+                                                R$ <?= number_format((float)$d['valor_pago'], 2, ',', '.') ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="border rounded p-2 h-100">
+                                            <div class="text-muted small">Imposto (7%)</div>
+                                            <div class="fs-4 fw-semibold">
+                                                R$ <?= number_format((float)$d['imposto'], 2, ',', '.') ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="border rounded p-2 h-100">
+                                            <div class="text-muted small">Custo do dia</div>
+                                            <div class="fs-4 fw-semibold">
+                                                R$ <?= number_format((float)$d['custo'], 2, ',', '.') ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col">
+                                        <div class="border rounded p-2 h-100">
+                                            <div class="text-muted small">Lucro</div>
+                                            <?php $lc = ($d['lucro'] ?? 0) >= 0 ? 'text-success' : 'text-danger'; ?>
+                                            <div class="fs-4 fw-semibold <?= $lc ?>">
+                                                R$ <?= number_format((float)$d['lucro'], 2, ',', '.') ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div> <!-- row -->
+                            </div>
+                        </div>
+                    </div>
                 <?php endforeach; ?>
-            </ul>
+            </div>
         <?php else: ?>
-            <div class="p-4 text-center text-muted">Sem dados para o período.</div>
+            <div class="p-4 text-center text-muted">Sem dados no período.</div>
         <?php endif; ?>
     </div>
 </div>

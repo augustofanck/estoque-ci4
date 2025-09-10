@@ -3,7 +3,7 @@
 namespace App\Controllers;
 
 use App\Controllers\BaseController;
-use App\Models\UserModel;
+use App\Models\UsuarioModel;
 use App\Models\RefreshTokenModel;
 use App\Libraries\JWTService;
 
@@ -24,7 +24,7 @@ class AuthApi extends BaseController
             return $this->response->setStatusCode(429)->setJSON(['error' => 'too_many_requests']);
         }
 
-        $u = (new UserModel())->where('email', $email)->first();
+        $u = (new UsuarioModel())->where('email', $email)->first();
         if (!$u || !password_verify($pass, $u['password_hash']) || (int)$u['is_active'] !== 1) {
             return $this->response->setStatusCode(401)->setJSON(['error' => 'invalid_credentials']);
         }
@@ -75,7 +75,7 @@ class AuthApi extends BaseController
         // Rotação: revoga o antigo e emite novo par
         $model->update($row['id'], ['revoked_at' => date('Y-m-d H:i:s')]);
 
-        $user = (new UserModel())->find($row['user_id']);
+        $user = (new UsuarioModel())->find($row['user_id']);
         if (!$user || (int)$user['is_active'] !== 1) {
             return $this->response->setStatusCode(401)->setJSON(['error' => 'user_inactive']);
         }
