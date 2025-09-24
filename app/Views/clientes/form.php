@@ -45,7 +45,7 @@
         </div>
         <div class="col-md-3">
             <label class="form-label">Término do contrato</label>
-            <input name="termino_contrato" class="form-control date-mask" placeholder="dd/mm/aaaa" value="<?= esc($cliente['termino_contrato'] ?? '') ?>">
+            <input name="termino_contrato" class="form-control date-mask" placeholder="DD/MM/AAAA" value="<?= esc($cliente['termino_contrato'] ?? '') ?>">
         </div>
 
         <div class="col-12">

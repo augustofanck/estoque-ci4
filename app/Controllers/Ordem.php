@@ -79,7 +79,6 @@ class Ordem extends BaseController
         $field    = $this->request->getGet('field') ?: 'nome_cliente';
         $vendedor = trim((string) $this->request->getGet('vendedor'));
 
-        // intervalo de datas (somente se apply_date=1)
         $applyDate    = (string) $this->request->getGet('apply_date') === '1';
         $dataIniRaw   = $this->request->getGet('data_ini');
         $dataFimRaw   = $this->request->getGet('data_fim');
@@ -106,7 +105,6 @@ class Ordem extends BaseController
             $builder->where('ordens.vendedor', $vendedor);
         }
 
-        // FILTRO DE DATA: data_compra
         if ($applyDate) {
             if ($dataIni && $dataFim) {
                 $builder->where('ordens.data_compra >=', $dataIni . ' 00:00:00')
@@ -136,8 +134,6 @@ class Ordem extends BaseController
         ]);
     }
 
-
-
     public function create()
     {
         $clientes = (new ClienteModel())
@@ -150,10 +146,10 @@ class Ordem extends BaseController
         ]);
     }
 
-    private function normalizeMoney(string $raw): string
+    private function normalizeMoney(string $raw): ?string
     {
         $raw = trim($raw);
-        if ($raw === '') return '0.00';
+        if ($raw === '') return null;
 
         $raw = preg_replace('/[^0-9.,]/', '', $raw);
         $lastComma = strrpos($raw, ',');
@@ -166,7 +162,7 @@ class Ordem extends BaseController
             $raw = str_replace(',', '', $raw);
         }
 
-        return is_numeric($raw) ? number_format((float)$raw, 2, '.', '') : '0.00';
+        return is_numeric($raw) ? number_format((float)$raw, 2, '.', '') : null;
     }
 
     private function normalizeMoneyArray(array $payload): array
@@ -196,18 +192,45 @@ class Ordem extends BaseController
 
         $temSegundo = ($payload['tem_segundo_par'] ?? '0') === '1';
         if (!$temSegundo) {
-            $payload['valor_armacao_2'] = '0';
-            $payload['valor_lente_2'] = '0';
-            $payload['tipo_lente_2'] = '0';
+            $payload['valor_armacao_2'] = null;
+            $payload['valor_lente_2']   = null;
+            $payload['tipo_lente_2']    = null;
         }
 
         $payload = $this->normalizeMoneyArray($payload);
         $payload = $this->normalizeDatesForSave($payload);
 
+        $isAjax = $this->request->isAJAX();
+
         if (!$this->model->save($payload)) {
-            return redirect()->back()->withInput()->with('errors', $this->model->errors());
+            $errors = $this->model->errors();
+
+            if ($isAjax) {
+                return $this->response->setStatusCode(422)->setJSON([
+                    'ok'     => false,
+                    'errors' => $errors,
+                    'csrf'   => csrf_hash(),
+                ]);
+            }
+
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with('errors', $errors);
         }
-        return redirect()->to(site_url('ordens'))->with('msg', 'Registro criado com sucesso!');
+
+        if ($isAjax) {
+            return $this->response->setJSON([
+                'ok'   => true,
+                'id'   => $this->model->getInsertID(),
+                'msg'  => 'Registro criado com sucesso!',
+                'csrf' => csrf_hash(),
+            ]);
+        }
+
+        return redirect()
+            ->to(site_url('ordens'))
+            ->with('msg', 'Registro criado com sucesso!');
     }
 
     public function edit($id)
@@ -233,9 +256,9 @@ class Ordem extends BaseController
 
         $temSegundo = ($payload['tem_segundo_par'] ?? '0') === '1';
         if (!$temSegundo) {
-            $payload['valor_armacao_2'] = '0';
-            $payload['valor_lente_2']   = '0';
-            $payload['tipo_lente_2']    = '';
+            $payload['valor_armacao_2'] = null;
+            $payload['valor_lente_2']   = null;
+            $payload['tipo_lente_2']    = null;
         }
 
         $payload = $this->normalizeMoneyArray($payload);

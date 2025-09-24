@@ -40,48 +40,55 @@ class OrdemModel extends Model
     ];
 
     protected $validationRules = [
-        'cliente_id' => 'required|is_natural_no_zero|is_not_unique[clientes.id]',
-        'data_compra'   => 'permit_empty|valid_date',
-        'valor_venda'   => 'required|decimal',
-        'valor_pago'    => 'permit_empty|decimal',
-        'valor_entrada' => 'permit_empty|decimal',
-        'valor_armacao_1' => 'permit_empty|decimal',
-        'valor_armacao_2' => 'permit_empty|decimal',
-        'valor_lente_1' => 'permit_empty|decimal',
-        'valor_lente_2' => 'permit_empty|decimal',
-        'pagamento_laboratorio' => 'permit_empty|decimal',
-        'data_compra'                  => 'permit_empty|valid_date[Y-m-d]',
-        'dia_pagamento_laboratorio'    => 'permit_empty|valid_date[Y-m-d]',
-        'data_recebimento_laboratorio' => 'permit_empty|valid_date[Y-m-d]',
-        'data_entrega_oculos'          => 'permit_empty|valid_date[Y-m-d]',
-        'dia_nota'                     => 'permit_empty|valid_date[Y-m-d]',
-        'nota_gerada' => 'permit_empty|in_list[0,1]',
-    ];
+        'cliente_id'                => 'required|is_natural_no_zero|is_not_unique[clientes.id]',
+        'data_compra'               => 'permit_empty|valid_date[Y-m-d]',
 
+        'valor_venda'               => 'required',
+        'valor_entrada'             => 'required',
+        'valor_pago'                => 'required',
+        'valor_armacao_1'           => 'required',
+        'valor_lente_1'             => 'required',
+        'consulta'                  => 'required',
+        'pagamento_laboratorio'     => 'required',
+
+        // opcionais
+        'valor_armacao_2'           => 'permit_empty|decimal',
+        'valor_lente_2'             => 'permit_empty|decimal',
+        'dia_pagamento_laboratorio' => 'permit_empty|valid_date[Y-m-d]',
+        'data_recebimento_laboratorio' => 'permit_empty|valid_date[Y-m-d]',
+        'data_entrega_oculos'       => 'permit_empty|valid_date[Y-m-d]',
+        'dia_nota'                  => 'permit_empty|valid_date[Y-m-d]',
+    ];
 
     protected $validationMessages = [
         'cliente_id' => [
-            'required' => 'Selecione um cliente',
-            'is_natural_no_zero' => 'Cliente inválido',
-            'is_not_unique' => 'Cliente não encontrado'
+            'required'           => 'Selecione um cliente.',
+            'is_natural_no_zero' => 'Cliente inválido.',
+            'is_not_unique'      => 'Cliente não encontrado.'
         ],
         'data_compra' => [
-            'required' => 'Informe a data da compra.',
-            'valid_date' => 'Data da compra inválida.'
+            'valid_date'         => 'Data da compra inválida.'
         ],
-        'valor_venda' => [],
-        'valor_pago' => [],
-        'valor_entrada' => [],
-        'valor_armacao_1' => [],
-        'valor_armacao_2' => [],
-        'valor_lente_1' => [],
-        'valor_lente_2' => [],
-        'pagamento_laboratorio' => [],
-        'data_compra' => [],
-        'dia_pagamento_laboratorio' => [],
-        'data_recebimento_laboratorio' => [],
-        'data_entrega_oculos' => [],
-        'dia_nota' => [],
-        'nota_gerada' => [],
+        'valor_venda' => [
+            'required' => 'Informe o valor de venda.',
+        ],
+        'valor_entrada' => [
+            'required' => 'Informe o valor de entrada.',
+        ],
+        'valor_pago' => [
+            'required' => 'Informe o valor pago.',
+        ],
+        'valor_armacao_1' => [
+            'required' => 'Informe o valor da armação.',
+        ],
+        'valor_lente_1' => [
+            'required' => 'Informe o valor da lente.',
+        ],
+        'consulta' => [
+            'required' => 'Informe o valor da consulta.',
+        ],
+        'pagamento_laboratorio' => [
+            'required' => 'Informe o pagamento do laboratório.',
+        ]
     ];
 }

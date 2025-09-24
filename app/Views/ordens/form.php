@@ -8,8 +8,13 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
 
 <h1 class="h3 mb-3"><?= $isEdit ? 'Editar Ordem' : 'Nova Ordem' ?></h1>
 
-<form method="post" action="<?= $action ?>">
+<form id="formOrdem" method="post" action="<?= $action ?>">
     <?= csrf_field() ?>
+    <script>
+        const CSRF_NAME = "<?= csrf_token() ?>";
+    </script>
+
+    <div id="errorsBox" class="alert alert-danger d-none"></div>
 
     <!-- Identificação -->
     <div class="card mb-3">
@@ -19,7 +24,7 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                 <div class="col-md-3">
                     <label class="form-label">Data da compra</label>
                     <input type="text" name="data_compra" class="form-control date-mask"
-                        placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10"
+                        placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
                         value="<?= old('data_compra', $ordem['data_compra'] ?? '') ?>">
                 </div>
                 <div class="col-md-3">
@@ -60,7 +65,7 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                         <span class="input-group-text">R$</span>
                         <input type="text" inputmode="decimal" name="valor_venda" class="form-control"
                             placeholder="0,00"
-                            value="<?= old('valor_venda', $ordem['valor_venda'] ?? '0,00') ?>">
+                            value="<?= old('valor_venda', $ordem['valor_venda'] ?? '') ?>">
                     </div>
                 </div>
 
@@ -70,7 +75,7 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                         <span class="input-group-text">R$</span>
                         <input type="text" inputmode="decimal" name="valor_entrada" class="form-control"
                             placeholder="0,00"
-                            value="<?= old('valor_entrada', $ordem['valor_entrada'] ?? '0,00') ?>">
+                            value="<?= old('valor_entrada', $ordem['valor_entrada'] ?? '') ?>">
                     </div>
                 </div>
 
@@ -90,7 +95,7 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                         <span class="input-group-text">R$</span>
                         <input type="text" inputmode="decimal" name="valor_pago" class="form-control"
                             placeholder="0,00"
-                            value="<?= old('valor_pago', $ordem['valor_pago'] ?? '0,00') ?>">
+                            value="<?= old('valor_pago', $ordem['valor_pago'] ?? '') ?>">
                     </div>
                 </div>
 
@@ -111,7 +116,7 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                         <span class="input-group-text">R$</span>
                         <input type="text" inputmode="decimal" name="consulta" class="form-control"
                             placeholder="0,00"
-                            value="<?= old('consulta', $ordem['consulta'] ?? '0,00') ?>">
+                            value="<?= old('consulta', $ordem['consulta'] ?? '') ?>">
                     </div>
                 </div>
             </div>
@@ -137,7 +142,7 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                         <span class="input-group-text">R$</span>
                         <input type="text" inputmode="decimal" name="valor_armacao_1" class="form-control"
                             placeholder="0,00"
-                            value="<?= old('valor_armacao_1', $ordem['valor_armacao_1'] ?? '0,00') ?>">
+                            value="<?= old('valor_armacao_1', $ordem['valor_armacao_1'] ?? '') ?>">
                     </div>
                 </div>
 
@@ -147,7 +152,7 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                         <span class="input-group-text">R$</span>
                         <input type="text" inputmode="decimal" name="valor_lente_1" class="form-control"
                             placeholder="0,00"
-                            value="<?= old('valor_lente_1', $ordem['valor_lente_1'] ?? '0,00') ?>">
+                            value="<?= old('valor_lente_1', $ordem['valor_lente_1'] ?? '') ?>">
                     </div>
                 </div>
 
@@ -167,7 +172,7 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                             <span class="input-group-text">R$</span>
                             <input type="text" inputmode="decimal" name="valor_armacao_2"
                                 class="form-control" placeholder="0,00"
-                                value="<?= old('valor_armacao_2', $ordem['valor_armacao_2'] ?? '0,00') ?>"
+                                value="<?= old('valor_armacao_2', $ordem['valor_armacao_2'] ?? '') ?>"
                                 <?= $temSegundo ? '' : 'disabled' ?>>
                         </div>
                     </div>
@@ -178,7 +183,7 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                             <span class="input-group-text">R$</span>
                             <input type="text" inputmode="decimal" name="valor_lente_2"
                                 class="form-control" placeholder="0,00"
-                                value="<?= old('valor_lente_2', $ordem['valor_lente_2'] ?? '0,00') ?>"
+                                value="<?= old('valor_lente_2', $ordem['valor_lente_2'] ?? '') ?>"
                                 <?= $temSegundo ? '' : 'disabled' ?>>
                         </div>
                     </div>
@@ -217,25 +222,25 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                         <span class="input-group-text">R$</span>
                         <input type="text" inputmode="decimal" name="pagamento_laboratorio" class="form-control"
                             placeholder="0,00"
-                            value="<?= old('pagamento_laboratorio', $ordem['pagamento_laboratorio'] ?? '0,00') ?>">
+                            value="<?= old('pagamento_laboratorio', $ordem['pagamento_laboratorio'] ?? '') ?>">
                     </div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Dia do pagamento (lab.)</label>
                     <input type="text" name="dia_pagamento_laboratorio" class="form-control date-mask"
-                        placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10"
+                        placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
                         value="<?= old('dia_pagamento_laboratorio', $ordem['dia_pagamento_laboratorio'] ?? '') ?>">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Recebimento do óculos (lab.)</label>
                     <input type="text" name="data_recebimento_laboratorio" class="form-control date-mask"
-                        placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10"
+                        placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
                         value="<?= old('data_recebimento_laboratorio', $ordem['data_recebimento_laboratorio'] ?? '') ?>">
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Entrega do óculos</label>
                     <input type="text" name="data_entrega_oculos" class="form-control date-mask"
-                        placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10"
+                        placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
                         value="<?= old('data_entrega_oculos', $ordem['data_entrega_oculos'] ?? '') ?>">
                 </div>
             </div>
@@ -257,7 +262,7 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                 <div class="col-md-3">
                     <label class="form-label">Dia da nota</label>
                     <input type="text" name="dia_nota" class="form-control date-mask"
-                        placeholder="dd/mm/aaaa" inputmode="numeric" maxlength="10"
+                        placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
                         value="<?= old('dia_nota', $ordem['dia_nota'] ?? '') ?>">
                 </div>
                 <div class="col-md-6">
@@ -286,18 +291,57 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
 <?= $this->renderSection('page_scripts') ?>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('formOrdem');
+        const errorsBox = document.getElementById('errorsBox');
         const chk = document.getElementById('tem_segundo_par');
         const wrap = document.getElementById('grupoSegundoPar');
-        if (!chk || !wrap) return;
 
-        function toggleSegundoPar() {
-            const on = chk.checked;
-            wrap.classList.toggle('d-none', !on);
-            wrap.querySelectorAll('input').forEach(el => el.disabled = !on);
+        if (chk && wrap) {
+            function toggleSegundoPar() {
+                const on = chk.checked;
+                wrap.classList.toggle('d-none', !on);
+                wrap.querySelectorAll('input').forEach(el => el.disabled = !on);
+            }
+            chk.addEventListener('change', toggleSegundoPar);
+            toggleSegundoPar();
         }
 
-        chk.addEventListener('change', toggleSegundoPar);
-        toggleSegundoPar(); // estado inicial
+        if (form) {
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                errorsBox.classList.add('d-none');
+                errorsBox.innerHTML = '';
+
+                const fd = new FormData(form);
+                const res = await fetch(form.action, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: fd
+                });
+
+                const json = await res.json().catch(() => ({}));
+
+                if (json.csrf && typeof CSRF_NAME !== 'undefined') {
+                    const csrfInput = form.querySelector(`input[name="${CSRF_NAME}"]`);
+                    if (csrfInput) csrfInput.value = json.csrf;
+                }
+
+                if (!res.ok || !json.ok) {
+                    const errs = json.errors || {
+                        geral: 'Erro ao salvar.'
+                    };
+                    errorsBox.innerHTML = Object.values(errs).map(msg => `<div>${msg}</div>`).join('');
+                    errorsBox.classList.remove('d-none');
+                    return;
+                }
+
+                if (json.ok) {
+                    window.location.href = "<?= site_url('ordens') ?>";
+                }
+            });
+        }
     });
 </script>
 
@@ -355,7 +399,7 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Término do contrato</label>
-                            <input name="termino_contrato" class="form-control date-mask" placeholder="dd/mm/aaaa">
+                            <input name="termino_contrato" class="form-control date-mask" placeholder="DD/MM/AAAA">
                         </div>
                     </div>
                 </div>
@@ -411,7 +455,7 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
 
             const json = await res.json().catch(() => ({}));
 
-            // Atualiza CSRF do form (se o framework estiver regenerando)
+            // Atualiza CSRF
             if (json.csrf && typeof CSRF_NAME !== 'undefined') {
                 const csrfInput = form.querySelector(`input[name="${CSRF_NAME}"]`);
                 if (csrfInput) csrfInput.value = json.csrf;
@@ -421,23 +465,25 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                 const errs = json.errors || {
                     geral: 'Erro ao salvar.'
                 };
-                errorsBox.innerHTML = Object.values(errs).map(e => `<div>${e}</div>`).join('');
+                errorsBox.innerHTML = Object.values(errs)
+                    .map(msg => `<div>${msg}</div>`)
+                    .join('');
                 errorsBox.classList.remove('d-none');
                 return;
             }
 
-            // Sucesso: adiciona no select e seleciona
+            // Sucesso
             if (clienteSelect) {
                 const opt = new Option(json.nome, json.id, true, true);
                 clienteSelect.add(opt);
                 clienteSelect.dispatchEvent(new Event('change'));
             }
 
-            // Fecha o modal e limpa o formulário
             const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
             modal.hide();
             form.reset();
         });
+
     });
 </script>
 

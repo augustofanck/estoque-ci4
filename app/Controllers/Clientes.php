@@ -108,23 +108,34 @@ class Clientes extends BaseController
 
         if (!$this->model->save($data)) {
             if ($isAjax) {
-                return $this->response
-                    ->setStatusCode(422)
-                    ->setJSON(['ok' => false, 'errors' => $this->model->errors(), 'csrf' => csrf_hash()]);
+                return $this->response->setJSON([
+                    'ok'     => false,
+                    'errors' => $this->model->errors(), // mensagens personalizadas
+                    'csrf'   => csrf_hash(),
+                ])->setStatusCode(422);
             }
-            return redirect()->back()->withInput()->with('errors', $this->model->errors());
+            return redirect()->back()
+                ->withInput()
+                ->with('errors', $this->model->errors());
         }
 
-        $id     = $this->model->getInsertID();
-        $nome   = $data['nome'] ?? '';
+        $id   = $this->model->getInsertID();
+        $nome = $data['nome'] ?? '';
 
         if ($isAjax) {
-            return $this->response->setJSON(['ok' => true, 'id' => $id, 'nome' => $nome, 'csrf' => csrf_hash()]);
+            return $this->response->setJSON([
+                'ok'   => true,
+                'id'   => $id,
+                'nome' => $nome,
+                'csrf' => csrf_hash(),
+            ]);
         }
 
-
-        return redirect()->to(site_url('clientes'))->with('msg', 'Cliente criado.');
+        return redirect()
+            ->to(site_url('clientes'))
+            ->with('msg', 'Cliente criado.');
     }
+
 
     public function edit($id)
     {
