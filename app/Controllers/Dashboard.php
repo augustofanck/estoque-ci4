@@ -24,7 +24,7 @@ class Dashboard extends BaseController
         $iniMes = date('Y-m-01 00:00:00');
         $fimMes = date('Y-m-t 23:59:59');
 
-        $ontem   = (new \DateTime('yesterday'))->format('Y-m-d');
+        $ontem    = (new \DateTime('yesterday'))->format('Y-m-d');
         $iniOntem = $ontem . ' 00:00:00';
         $fimOntem = $ontem . ' 23:59:59';
 
@@ -44,7 +44,8 @@ class Dashboard extends BaseController
             }
             return $s;
         };
-        $colsCusto = ['valor_armacao_1', 'valor_armacao_2', 'valor_lente_1', 'valor_lente_2', 'consulta'];
+
+        $colsCusto = ['valor_armacao_1', 'valor_armacao_2', 'valor_lente_1', 'valor_lente_2'];
 
         $sumBetween = function (string $col, string $ini, string $fim) use ($db, $T, $notDeleted) {
             $b = $db->table($T)->select("SUM($col) AS s")
@@ -53,6 +54,7 @@ class Dashboard extends BaseController
             $row = $b->get()->getRowArray();
             return $row && $row['s'] !== null ? (float)$row['s'] : 0.0;
         };
+
         $countBetween = function (string $ini, string $fim, ?string $status) use ($db, $T, $notDeleted) {
             $b = $db->table($T)->select('COUNT(*) AS c')
                 ->where('data_compra >=', $ini)->where('data_compra <=', $fim);
@@ -60,6 +62,7 @@ class Dashboard extends BaseController
             $notDeleted($b, 'ordens');
             return (int)($b->get()->getRow('c') ?? 0);
         };
+
         $custoEntre = function (string $ini, string $fim) use ($db, $T, $notDeleted, $colsCusto, $sumCols) {
             $b = $db->table($T)->select(implode(',', array_merge(['data_compra'], $colsCusto)))
                 ->where('data_compra >=', $ini)->where('data_compra <=', $fim);
@@ -71,25 +74,33 @@ class Dashboard extends BaseController
             return $total;
         };
 
+        $consultasEntre = function (string $ini, string $fim) use ($db, $T, $notDeleted) {
+            $b = $db->table($T)->select("SUM(consulta) AS s")
+                ->where('data_compra >=', $ini)->where('data_compra <=', $fim);
+            $notDeleted($b, 'ordens');
+            $row = $b->get()->getRowArray();
+            return $row && $row['s'] !== null ? (float)$row['s'] : 0.0;
+        };
+
         // ---------- KPI scope atual ----------
         if ($kpiScope === 'dia') {
-            // KPIs baseados em ONTEM para manter "custo do dia anterior"
             $labelPeriodo = 'Ontem';
             $ordensTotal  = $countBetween($iniOntem, $fimOntem, $status);
             $fat          = $sumBetween('valor_venda', $iniOntem, $fimOntem);
             $pago         = $sumBetween('valor_pago',  $iniOntem, $fimOntem);
+            $consultas    = $consultasEntre($iniOntem, $fimOntem);
         } else {
             $labelPeriodo = 'Mês atual';
             $ordensTotal  = $countBetween($iniPeriodo, $fimPeriodo, $status);
             $fat          = $sumBetween('valor_venda', $iniMes, $fimMes);
             $pago         = $sumBetween('valor_pago',  $iniMes, $fimMes);
+            $consultas    = $consultasEntre($iniMes, $fimMes);
         }
 
-        // custo do DIA ANTERIOR (sempre) para o cálculo de lucro exibido nos KPIs
-        $custoDiaAnterior = $custoEntre($iniOntem, $fimOntem);
+        $custoItens = $custoEntre($iniOntem, $fimOntem);
 
         $imposto = $fat * 0.07;
-        $lucro   = ($pago * 0.9) - $imposto - $custoDiaAnterior;
+        $lucro   = ($pago * 0.9) - $imposto - $consultas - $custoItens;
 
         // ---------- Lista colapsável: últimos 14 dias ----------
         $diasLista = [];
@@ -103,17 +114,19 @@ class Dashboard extends BaseController
             $pagD = $sumBetween('valor_pago',  $ini, $fim);
             $impD = $fatD * 0.07;
             $cusD = $custoEntre($ini, $fim);
-            $lucD = ($pagD * 0.9) - $impD - $cusD;
+            $conD = $consultasEntre($ini, $fim);
+            $lucD = ($pagD * 0.9) - $impD - $conD - $cusD;
 
             $diasLista[] = [
-                'data_iso'   => $d,
-                'label'      => date('d/m', strtotime($d)),
-                'ordens'     => $ord,
+                'data_iso'    => $d,
+                'label'       => date('d/m', strtotime($d)),
+                'ordens'      => $ord,
                 'faturamento' => $fatD,
-                'valor_pago' => $pagD,
-                'imposto'    => $impD,
-                'custo'      => $cusD,
-                'lucro'      => $lucD,
+                'valor_pago'  => $pagD,
+                'imposto'     => $impD,
+                'consultas'   => $conD,
+                'custo'       => $cusD,
+                'lucro'       => $lucD,
             ];
         }
 
@@ -139,14 +152,15 @@ class Dashboard extends BaseController
                 'faturamento_estimado' => $fat,
                 'valor_pago'           => $pago,
                 'valor_imposto'        => $imposto,
+                'valor_consultas'      => $consultas,
+                'valor_custo_itens'    => $custoItens,
                 'valor_lucro'          => $lucro,
-                'custo_dia_anterior'   => $custoDiaAnterior,
                 'lucro_class'          => $lucroClass,
             ],
             'role'                 => $role = role_level(),
             'canSeeAllFin'         => $role >= 1,
             'canSeeLimited'        => $role === 0,
-            'dias_ultimos'         => $diasLista,   // NOVO: para accordion
+            'dias_ultimos'         => $diasLista,
             'ultimas_ordens'       => $ultimasOrdens,
             'relatorios_recentes'  => [],
         ];

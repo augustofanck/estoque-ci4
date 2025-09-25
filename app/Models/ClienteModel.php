@@ -23,6 +23,14 @@ class ClienteModel extends Model
     ];
 
     protected $validationMessages = [
+        'nome' => [
+            'required' => 'O campo nome deve ser preenchido.',
+            'min_length' => 'O campo deve conter mais de 2 caracteres',
+            'max_length' => 'O campo não deve conter mais de 150 caracteres'
+        ],
+        'documento' => [
+            'required' => 'O campo CPF deve ser preenchido.',
+        ],
         'cep' => [
             'regex_match' => 'CEP deve ter 8 dígitos (ex.: 01310930).'
         ],
@@ -33,6 +41,6 @@ class ClienteModel extends Model
         'email' => 'permit_empty|valid_email|max_length[150]',
         'estado' => 'permit_empty|exact_length[2]',
         'cep' => 'permit_empty|regex_match[/^\d{8}$/]',
-        'documento'   => 'permit_empty|regex_match[/^\d{11}$/]'
+        'documento'   => 'required|regex_match[/^\d{11}$/]'
     ];
 }
