@@ -11,7 +11,7 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
 <form id="formOrdem" method="post" action="<?= $action ?>">
     <?= csrf_field() ?>
     <script>
-        const CSRF_NAME = "<?= csrf_token() ?>";
+        const CSRF_NAME_ORDEM = "<?= csrf_token() ?>";
     </script>
 
     <div id="errorsBox" class="alert alert-danger d-none"></div>
@@ -323,9 +323,9 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
 
                 const json = await res.json().catch(() => ({}));
 
-                if (json.csrf && typeof CSRF_NAME !== 'undefined') {
-                    const csrfInput = form.querySelector(`input[name="${CSRF_NAME}"]`);
-                    if (csrfInput) csrfInput.value = json.csrf;
+                if (json.csrf) {
+                    const csrfInputOrdem = form.querySelector(`input[name="${CSRF_NAME_ORDEM}"]`);
+                    if (csrfInputOrdem) csrfInputOrdem.value = json.csrf;
                 }
 
                 if (!res.ok || !json.ok) {
@@ -359,7 +359,7 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                     <?= csrf_field() ?>
                     <!-- Captura o nome do token para atualizar via JS -->
                     <script>
-                        const CSRF_NAME = "<?= csrf_token() ?>";
+                        const CSRF_NAME_CLIENTE = "<?= csrf_token() ?>";
                     </script>
 
                     <div id="clienteErrors" class="alert alert-danger d-none"></div>
@@ -456,9 +456,16 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
             const json = await res.json().catch(() => ({}));
 
             // Atualiza CSRF
-            if (json.csrf && typeof CSRF_NAME !== 'undefined') {
-                const csrfInput = form.querySelector(`input[name="${CSRF_NAME}"]`);
-                if (csrfInput) csrfInput.value = json.csrf;
+            if (json.csrf) {
+                const csrfInputCliente = form.querySelector(`input[name="${CSRF_NAME_CLIENTE}"]`);
+                if (csrfInputCliente) csrfInputCliente.value = json.csrf;
+
+                // também atualiza o form de ordem
+                const formOrdem = document.getElementById('formOrdem');
+                if (formOrdem) {
+                    const csrfInputOrdem = formOrdem.querySelector(`input[name="${CSRF_NAME_ORDEM}"]`);
+                    if (csrfInputOrdem) csrfInputOrdem.value = json.csrf;
+                }
             }
 
             if (!res.ok || !json.ok) {

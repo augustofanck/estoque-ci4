@@ -264,9 +264,31 @@ class Ordem extends BaseController
         $payload = $this->normalizeMoneyArray($payload);
         $payload = $this->normalizeDatesForSave($payload);
 
+        $isAjax = $this->request->isAJAX();
+
         if (!$this->model->save($payload)) {
-            return redirect()->back()->withInput()->with('errors', $this->model->errors());
+            $errors = $this->model->errors();
+
+            if ($isAjax) {
+                return $this->response->setStatusCode(422)->setJSON([
+                    'ok'     => false,
+                    'errors' => $errors,
+                    'csrf'   => csrf_hash(),
+                ]);
+            }
+
+            return redirect()->back()->withInput()->with('errors', $errors);
         }
+
+        if ($isAjax) {
+            return $this->response->setJSON([
+                'ok'   => true,
+                'id'   => $id,
+                'msg'  => 'Registro atualizado com sucesso!',
+                'csrf' => csrf_hash(),
+            ]);
+        }
+
         return redirect()->to(site_url('ordens'))->with('msg', 'Registro atualizado com sucesso!');
     }
 
