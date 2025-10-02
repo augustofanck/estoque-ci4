@@ -3,16 +3,15 @@
 namespace App\Controllers;
 
 use App\Controllers\BaseController;
-use App\Models\OrdemModel;
-use App\Models\ClienteModel;
 
 class Dashboard extends BaseController
 {
     public function index()
     {
-        $range    = (string) ($this->request->getGet('range') ?? '30');      // 7|30|90
-        $status   = (string) ($this->request->getGet('status') ?? 'todos');  // todos|aberta|fechada
-        $kpiScope = (string) ($this->request->getGet('kpi')   ?? 'dia');     // dia|mes
+        $range     = (string) ($this->request->getGet('range') ?? '30');     // 7|30|90
+        $status    = (string) ($this->request->getGet('status') ?? 'todos'); // todos|aberta|fechada
+        $kpiScope  = (string) ($this->request->getGet('kpi') ?? 'dia');      // dia|mes
+        $mesFiltro = (string) ($this->request->getGet('mes') ?? '');         // YYYY-MM
 
         $db = \Config\Database::connect();
         $T  = 'ordens';
@@ -21,13 +20,11 @@ class Dashboard extends BaseController
         $iniPeriodo = date('Y-m-d 00:00:00', strtotime('-' . ($dias - 1) . ' days'));
         $fimPeriodo = date('Y-m-d 23:59:59');
 
-        $iniMes = date('Y-m-01 00:00:00');
-        $fimMes = date('Y-m-t 23:59:59');
+        $ontem     = (new \DateTime('yesterday'))->format('Y-m-d');
+        $iniOntem  = $ontem . ' 00:00:00';
+        $fimOntem  = $ontem . ' 23:59:59';
 
-        $ontem    = (new \DateTime('yesterday'))->format('Y-m-d');
-        $iniOntem = $ontem . ' 00:00:00';
-        $fimOntem = $ontem . ' 23:59:59';
-
+        // --------- helper para registros não deletados ---------
         $notDeleted = function (\CodeIgniter\Database\BaseBuilder $b, string $t) {
             $b->groupStart()
                 ->where("$t.deleted_at IS NULL", null, false)
@@ -82,34 +79,46 @@ class Dashboard extends BaseController
             return $row && $row['s'] !== null ? (float)$row['s'] : 0.0;
         };
 
-        // ---------- KPI scope atual ----------
+        // ---------- KPI scope ----------
         if ($kpiScope === 'dia') {
+            // KPIs do dia anterior
             $labelPeriodo = 'Ontem';
             $ordensTotal  = $countBetween($iniOntem, $fimOntem, $status);
             $fat          = $sumBetween('valor_venda', $iniOntem, $fimOntem);
             $pago         = $sumBetween('valor_pago',  $iniOntem, $fimOntem);
             $consultas    = $consultasEntre($iniOntem, $fimOntem);
+            $custoItens   = $custoEntre($iniOntem, $fimOntem);
         } else {
-            $labelPeriodo = 'Mês atual';
-            $ordensTotal  = $countBetween($iniPeriodo, $fimPeriodo, $status);
+            // Se usuário filtrou mês, usar ele
+            if (!empty($mesFiltro)) {
+                $iniMes = date('Y-m-01 00:00:00', strtotime($mesFiltro . '-01'));
+                $fimMes = date('Y-m-t 23:59:59', strtotime($mesFiltro . '-01'));
+                $labelPeriodo = ucfirst(strftime('%B de %Y', strtotime($mesFiltro . '-01')));
+            } else {
+                // Mês atual
+                $iniMes = date('Y-m-01 00:00:00');
+                $fimMes = date('Y-m-t 23:59:59');
+                $labelPeriodo = 'Mês atual';
+            }
+
+            $ordensTotal  = $countBetween($iniMes, $fimMes, $status);
             $fat          = $sumBetween('valor_venda', $iniMes, $fimMes);
             $pago         = $sumBetween('valor_pago',  $iniMes, $fimMes);
             $consultas    = $consultasEntre($iniMes, $fimMes);
+            $custoItens   = $custoEntre($iniMes, $fimMes);
         }
-
-        $custoItens = $custoEntre($iniOntem, $fimOntem);
 
         $imposto = $fat * 0.07;
         $lucro   = ($pago * 0.9) - $imposto - $consultas - $custoItens;
 
-        // ---------- Lista colapsável: últimos 14 dias ----------
+        // ---------- Últimos 14 dias ----------
         $diasLista = [];
         for ($i = 0; $i < 14; $i++) {
             $d = (new \DateTime("today"))->modify("-{$i} days")->format('Y-m-d');
             $ini = $d . ' 00:00:00';
             $fim = $d . ' 23:59:59';
 
-            $ord = $countBetween($ini, $fim, $status);
+            $ord  = $countBetween($ini, $fim, $status);
             $fatD = $sumBetween('valor_venda', $ini, $fim);
             $pagD = $sumBetween('valor_pago',  $ini, $fim);
             $impD = $fatD * 0.07;
@@ -143,8 +152,12 @@ class Dashboard extends BaseController
         $lucroClass = $lucro >= 0 ? 'text-success' : 'text-danger';
 
         $data = [
-            'title' => 'Dashboard',
-            'filtros' => ['range' => $range, 'status' => $status],
+            'title'   => 'Dashboard',
+            'filtros' => [
+                'range' => $range,
+                'status' => $status,
+                'mes' => $mesFiltro,
+            ],
             'kpi_scope' => $kpiScope,
             'stats' => [
                 'periodo_label'        => $labelPeriodo,
@@ -157,12 +170,12 @@ class Dashboard extends BaseController
                 'valor_lucro'          => $lucro,
                 'lucro_class'          => $lucroClass,
             ],
-            'role'                 => $role = role_level(),
-            'canSeeAllFin'         => $role >= 1,
-            'canSeeLimited'        => $role === 0,
-            'dias_ultimos'         => $diasLista,
-            'ultimas_ordens'       => $ultimasOrdens,
-            'relatorios_recentes'  => [],
+            'role'                => $role = role_level(),
+            'canSeeAllFin'        => $role >= 1,
+            'canSeeLimited'       => $role === 0,
+            'dias_ultimos'        => $diasLista,
+            'ultimas_ordens'      => $ultimasOrdens,
+            'relatorios_recentes' => [],
         ];
 
         return view('dashboard/index', $data);

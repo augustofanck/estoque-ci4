@@ -17,8 +17,22 @@
             <!-- NOVO: Vendedor -->
             <td><?= esc($o['vendedor'] ?? '—') ?></td>
 
-            <td>R$ <?= number_format((float)$o['valor_venda'], 2, ',', '.') ?></td>
-            <td>R$ <?= number_format((float)$o['valor_pago'], 2, ',', '.') ?></td>
+            <?php
+            $valorVenda = (float)$o['valor_venda'];
+            $valorPago  = (float)$o['valor_pago'];
+            $estaPago   = ($valorVenda > 0 && $valorVenda == $valorPago);
+            ?>
+
+            <td>
+                <span class="badge <?= $estaPago ? 'bg-success' : 'bg-success' ?>">
+                    R$ <?= number_format($valorVenda, 2, ',', '.') ?>
+                </span>
+            </td>
+            <td>
+                <span class="badge <?= $estaPago ? 'bg-success' : 'bg-danger' ?>">
+                    R$ <?= number_format($valorPago, 2, ',', '.') ?>
+                </span>
+            </td>
 
             <!-- Data entrega óculos -->
             <td>
