@@ -37,6 +37,7 @@ class CreateOrdensTable extends Migration
 
             'nota_gerada'                  => ['type' => 'TINYINT', 'constraint' => 1, 'default' => 0], // 0 = não, 1 = sim
             'dia_nota'                     => ['type' => 'DATE', 'null' => true],
+            'numero_nota'                  => ['type' => 'INT', 'null' => true],
 
             'created_at'                   => ['type' => 'DATETIME', 'null' => true],
             'updated_at'                   => ['type' => 'DATETIME', 'null' => true],

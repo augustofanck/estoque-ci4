@@ -36,6 +36,7 @@ class OrdemModel extends Model
         'data_entrega_oculos',
         'nota_gerada',
         'dia_nota',
+        'numero_nota',
         'vendedor',
     ];
 
@@ -58,6 +59,7 @@ class OrdemModel extends Model
         'data_recebimento_laboratorio' => 'permit_empty|valid_date[Y-m-d]',
         'data_entrega_oculos'       => 'permit_empty|valid_date[Y-m-d]',
         'dia_nota'                  => 'permit_empty|valid_date[Y-m-d]',
+        'numero_nota'               => 'permit_empty|decimal',
     ];
 
     protected $validationMessages = [
@@ -91,4 +93,34 @@ class OrdemModel extends Model
             'required' => 'Informe o pagamento do laboratório.',
         ]
     ];
+
+    // dentro de App\Models\OrdemModel
+
+    public function relatorioPorPeriodo(string $dataInicio, string $dataFim): array
+    {
+        return $this->select('
+            id,
+            nome_cliente,
+            data_compra AS dia_entrada,
+            valor_venda,
+            valor_entrada,
+            dia_nota,
+            numero_nota
+        ')
+            ->where('data_compra >=', $dataInicio)
+            ->where('data_compra <=', $dataFim)
+            ->orderBy('data_compra', 'ASC')
+            ->findAll();
+    }
+
+    public function totaisPorPeriodo(string $dataInicio, string $dataFim): array
+    {
+        return $this->select('
+            SUM(valor_venda)   AS total_venda,
+            SUM(valor_entrada) AS total_entrada
+        ')
+            ->where('data_compra >=', $dataInicio)
+            ->where('data_compra <=', $dataFim)
+            ->first();
+    }
 }

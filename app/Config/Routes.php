@@ -49,4 +49,13 @@ $routes->group('', ['filter' => 'webauth'], static function ($routes) {
         $r->post('(:num)/update', 'Usuarios::update/$1');
         $r->get('(:num)/delete',  'Usuarios::delete/$1');
     });
+
+    // Relatórios
+    $routes->group('relatorios', ['namespace' => 'App\Controllers'], function ($routes) {
+        // página inicial de relatórios (hub)
+        $routes->get('/', 'Relatorios::index');
+
+        // relatório de ordens (com filtros via GET)
+        $routes->get('ordens', 'Relatorios::ordens');
+    });
 });

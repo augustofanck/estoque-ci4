@@ -252,18 +252,22 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
         <div class="card-header fw-semibold">Fiscal</div>
         <div class="card-body">
             <div class="row g-3 align-items-center">
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <div class="form-check form-switch mt-2">
                         <input class="form-check-input" type="checkbox" id="nota_gerada" name="nota_gerada"
                             <?= old('nota_gerada', $ordem['nota_gerada'] ?? 0) ? 'checked' : '' ?>>
                         <label class="form-check-label" for="nota_gerada">Nota gerada?</label>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <label class="form-label">Dia da nota</label>
                     <input type="text" name="dia_nota" class="form-control date-mask"
                         placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
                         value="<?= old('dia_nota', $ordem['dia_nota'] ?? '') ?>">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Número Nota</label>
+                    <input type="text" name="numero_nota" class="form-control only-number" inputmode="numeric" maxlength="10" value="<?= old('numero_nota', $ordem['numero_nota'] ?? '') ?>">
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Vendedor</label>
@@ -342,6 +346,12 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                 }
             });
         }
+    });
+
+    document.querySelectorAll('.only-number').forEach(function(input) {
+        input.addEventListener('input', function() {
+            this.value = this.value.replace(/\D/g, '');
+        });
     });
 </script>
 
