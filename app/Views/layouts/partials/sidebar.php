@@ -21,6 +21,42 @@
             </div>
         </div>
 
+        <?php if (has_min_role(1)): ?>
+            <div class="mb-2">
+                <button class="btn btn-light btn-toggle text-start w-100"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#secEstoque"
+                    aria-expanded="<?= $seg1 === 'estoque' ? 'true' : 'false' ?>">
+                    Estoque
+                </button>
+
+                <div id="secEstoque" class="collapse <?= $showIf('estoque') ?>">
+                    <div class="list-group ms-2 mt-2">
+                        <a href="<?= site_url('estoque') ?>"
+                            class="list-group-item list-group-item-action <?= $is('estoque') && $seg2 === '' ? 'active' : '' ?>">
+                            Listar
+                        </a>
+
+                        <a href="<?= site_url('estoque/create') ?>"
+                            class="list-group-item list-group-item-action <?= $is('estoque', 'create') ? 'active' : '' ?>">
+                            Novo
+                        </a>
+
+                        <a href="<?= site_url('estoque-tipos') ?>"
+                            class="list-group-item list-group-item-action <?= $is('estoque-tipos') ? 'active' : '' ?>">
+                            Tipos
+                        </a>
+
+                        <a href="<?= site_url('estoque/relatorios') ?>"
+                            class="list-group-item list-group-item-action <?= $is('estoque', 'relatorios') ? 'active' : '' ?>">
+                            Relatórios
+                        </a>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
+
         <div class="mb-2">
             <button class="btn btn-light btn-toggle text-start w-100" data-bs-toggle="collapse" data-bs-target="#secClientes" aria-expanded="<?= $seg1 === 'clientes' ? 'true' : 'false' ?>">Clientes</button>
             <div id="secClientes" class="collapse <?= $showIf('clientes') ?>">

@@ -172,79 +172,85 @@ $periodoLbl = $stats['periodo_label'] ?? ($mesFiltro ? ucfirst(mesLabel($mesFilt
 </div>
 
 <!-- Últimos 14 dias -->
-<div class="card shadow-sm border-0 mb-4">
-    <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <strong>📅 Últimos 14 dias</strong>
-        <span class="small text-muted">Toque para detalhar</span>
-    </div>
-    <div class="card-body p-0">
-        <?php if (!empty($dias_ultimos)): ?>
-            <div class="accordion" id="accUltimosDias">
-                <?php foreach ($dias_ultimos as $i => $d): $itemId = 'dia' . $i; ?>
-                    <div class="accordion-item">
-                        <h2 class="accordion-header" id="h-<?= $itemId ?>">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                data-bs-target="#c-<?= $itemId ?>" aria-expanded="false"
-                                aria-controls="c-<?= $itemId ?>">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <span class="fw-semibold"><?= esc($d['label']) ?></span>
-                                    <span class="badge <?= ($d['lucro'] ?? 0) >= 0 ? 'bg-success' : 'bg-danger' ?>">
-                                        Lucro: R$ <?= number_format((float)$d['lucro'], 2, ',', '.') ?>
-                                    </span>
+
+<?php if (isset($canSeeLimited) && (int)$canSeeLimited === 0): ?>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <strong>📅 Últimos 14 dias</strong>
+            <span class="small text-muted">Toque para detalhar</span>
+        </div>
+        <div class="card-body p-0">
+            <?php if (!empty($dias_ultimos)): ?>
+                <div class="accordion" id="accUltimosDias">
+                    <?php foreach ($dias_ultimos as $i => $d): $itemId = 'dia' . $i; ?>
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="h-<?= $itemId ?>">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#c-<?= $itemId ?>" aria-expanded="false"
+                                    aria-controls="c-<?= $itemId ?>">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <span class="fw-semibold"><?= esc($d['label']) ?></span>
+                                        <span class="badge <?= ($d['lucro'] ?? 0) >= 0 ? 'bg-success' : 'bg-danger' ?>">
+                                            Lucro: R$ <?= number_format((float)$d['lucro'], 2, ',', '.') ?>
+                                        </span>
+                                    </div>
+                                </button>
+                            </h2>
+                            <div id="c-<?= $itemId ?>" class="accordion-collapse collapse" aria-labelledby="h-<?= $itemId ?>"
+                                data-bs-parent="#accUltimosDias">
+                                <div class="accordion-body">
+                                    <div class="row g-3">
+                                        <div class="col">
+                                            <div class="p-2 border rounded text-center">
+                                                <div class="small text-muted">Ordens</div>
+                                                <div class="fw-bold"><?= esc($d['ordens']) ?></div>
+                                            </div>
+                                        </div>
+                                        <div class="col">
+                                            <div class="p-2 border rounded text-center">
+                                                <div class="small text-muted">Faturamento</div>
+                                                <div class="fw-bold text-primary">R$ <?= number_format((float)$d['faturamento'], 2, ',', '.') ?></div>
+                                            </div>
+                                        </div>
+                                        <div class="col">
+                                            <div class="p-2 border rounded text-center">
+                                                <div class="small text-muted">Recebido</div>
+                                                <div class="fw-bold text-success">R$ <?= number_format((float)$d['valor_pago'], 2, ',', '.') ?></div>
+                                            </div>
+                                        </div>
+                                        <div class="col">
+                                            <div class="p-2 border rounded text-center">
+                                                <div class="small text-muted">Imposto</div>
+                                                <div class="fw-bold text-danger">R$ <?= number_format((float)$d['imposto'], 2, ',', '.') ?></div>
+                                            </div>
+                                        </div>
+                                        <div class="col">
+                                            <div class="p-2 border rounded text-center">
+                                                <div class="small text-muted">Consultas</div>
+                                                <div class="fw-bold text-info">R$ <?= number_format((float)$d['consultas'], 2, ',', '.') ?></div>
+                                            </div>
+                                        </div>
+                                        <div class="col">
+                                            <div class="p-2 border rounded text-center">
+                                                <div class="small text-muted">Custo</div>
+                                                <div class="fw-bold text-warning">R$ <?= number_format((float)$d['custo'], 2, ',', '.') ?></div>
+                                            </div>
+                                        </div>
+                                    </div> <!-- row -->
                                 </div>
-                            </button>
-                        </h2>
-                        <div id="c-<?= $itemId ?>" class="accordion-collapse collapse" aria-labelledby="h-<?= $itemId ?>"
-                            data-bs-parent="#accUltimosDias">
-                            <div class="accordion-body">
-                                <div class="row g-3">
-                                    <div class="col">
-                                        <div class="p-2 border rounded text-center">
-                                            <div class="small text-muted">Ordens</div>
-                                            <div class="fw-bold"><?= esc($d['ordens']) ?></div>
-                                        </div>
-                                    </div>
-                                    <div class="col">
-                                        <div class="p-2 border rounded text-center">
-                                            <div class="small text-muted">Faturamento</div>
-                                            <div class="fw-bold text-primary">R$ <?= number_format((float)$d['faturamento'], 2, ',', '.') ?></div>
-                                        </div>
-                                    </div>
-                                    <div class="col">
-                                        <div class="p-2 border rounded text-center">
-                                            <div class="small text-muted">Recebido</div>
-                                            <div class="fw-bold text-success">R$ <?= number_format((float)$d['valor_pago'], 2, ',', '.') ?></div>
-                                        </div>
-                                    </div>
-                                    <div class="col">
-                                        <div class="p-2 border rounded text-center">
-                                            <div class="small text-muted">Imposto</div>
-                                            <div class="fw-bold text-danger">R$ <?= number_format((float)$d['imposto'], 2, ',', '.') ?></div>
-                                        </div>
-                                    </div>
-                                    <div class="col">
-                                        <div class="p-2 border rounded text-center">
-                                            <div class="small text-muted">Consultas</div>
-                                            <div class="fw-bold text-info">R$ <?= number_format((float)$d['consultas'], 2, ',', '.') ?></div>
-                                        </div>
-                                    </div>
-                                    <div class="col">
-                                        <div class="p-2 border rounded text-center">
-                                            <div class="small text-muted">Custo</div>
-                                            <div class="fw-bold text-warning">R$ <?= number_format((float)$d['custo'], 2, ',', '.') ?></div>
-                                        </div>
-                                    </div>
-                                </div> <!-- row -->
                             </div>
                         </div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        <?php else: ?>
-            <div class="p-4 text-center text-muted">Sem dados no período.</div>
-        <?php endif; ?>
+                    <?php endforeach; ?>
+                </div>
+            <?php else: ?>
+                <div class="p-4 text-center text-muted">Sem dados no período.</div>
+            <?php endif; ?>
+        </div>
     </div>
-</div>
+
+<?php endif; ?>
+
 
 <!-- Últimas ordens + Relatórios -->
 <div class="row g-3">
