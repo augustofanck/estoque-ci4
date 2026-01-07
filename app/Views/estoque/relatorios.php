@@ -103,7 +103,7 @@ function mov_badge(string $t): string
                     </div>
 
                     <div class="col-md-1 d-grid">
-                        <button class="btn btn-primary">Filtrar</button>
+                        <button type="submit" class="btn btn-primary">Filtrar</button>
                     </div>
 
                 </div>
@@ -147,17 +147,20 @@ function mov_badge(string $t): string
     </div>
 
     <div class="row g-3">
-        <div class="col-lg-8">
+        <div class="col-lg-12">
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white">
                     <strong>🧾 Movimentações (até 300)</strong>
                 </div>
-                <div class="card-body p-0">
+                <div class="card-body p-4">
                     <?php if (!empty($movimentos)): ?>
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
+                            <table id="tbMovimentacoes" class="table table-hover align-middle mb-0 w-100">
                                 <thead class="table-light">
                                     <tr>
+                                        <!-- coluna auxiliar oculta pra ordenação correta -->
+                                        <th class="d-none">DataSort</th>
+
                                         <th style="width:190px;">Data</th>
                                         <th style="width:120px;">Tipo</th>
                                         <th style="width:90px;" class="text-center">Qtd</th>
@@ -170,10 +173,16 @@ function mov_badge(string $t): string
                                     <?php foreach ($movimentos as $m): ?>
                                         <?php
                                         $t = (string)($m['tipo'] ?? '');
-                                        $dt = !empty($m['created_at']) ? date('d/m/Y H:i', strtotime($m['created_at'])) : '—';
+                                        $createdAt = (string)($m['created_at'] ?? '');
+                                        $ts = $createdAt ? strtotime($createdAt) : 0;
+
+                                        $dt = $createdAt ? date('d/m/Y H:i', $ts) : '—';
                                         $itemLabel = trim(($m['codigo'] ?? '') . ' ' . (($m['titulo'] ?? '') ? ('— ' . $m['titulo']) : ''));
                                         ?>
                                         <tr>
+                                            <!-- para ordenar: número puro -->
+                                            <td class="d-none"><?= (int)$ts ?></td>
+
                                             <td class="text-muted"><?= esc($dt) ?></td>
                                             <td>
                                                 <span class="badge <?= mov_badge($t) ?>">
@@ -183,9 +192,7 @@ function mov_badge(string $t): string
                                             <td class="text-center fw-bold"><?= (int)($m['quantidade'] ?? 0) ?></td>
                                             <td>
                                                 <div class="fw-semibold"><?= esc($itemLabel ?: '—') ?></div>
-                                                <div class="small text-muted">
-                                                    <?= esc($m['tipo_nome'] ?? '—') ?>
-                                                </div>
+                                                <div class="small text-muted"><?= esc($m['tipo_nome'] ?? '—') ?></div>
                                             </td>
                                             <td><?= esc($m['motivo'] ?? '—') ?></td>
                                             <td><?= esc($m['referencia'] ?? '—') ?></td>
@@ -233,5 +240,89 @@ function mov_badge(string $t): string
     </div>
 
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (!window.jQuery) return;
+
+        const $table = $('#tbMovimentacoes');
+        if (!$table.length) return;
+
+        const dt = $table.DataTable({
+            // Botões + filtro + paginação com layout bonitinho Bootstrap
+            dom: "<'row'<'col-12 col-md-6 d-flex gap-2 align-items-center'B><'col-12 col-md-6'f>>" +
+                "<'row'<'col-12'tr>>" +
+                "<'row'<'col-12 col-md-5'i><'col-12 col-md-7'p>>",
+
+            buttons: [{
+                    extend: 'pdfHtml5',
+                    text: '🖨️ Gerar PDF',
+                    className: 'btn btn-sm mb-2',
+                    title: 'Movimentações de Estoque',
+                    filename: function() {
+                        const d = new Date();
+                        const y = d.getFullYear();
+                        const m = String(d.getMonth() + 1).padStart(2, '0');
+                        const day = String(d.getDate()).padStart(2, '0');
+                        return `movimentacoes_estoque_${y}-${m}-${day}`;
+                    },
+                    exportOptions: {
+                        // exclui a coluna 0 (DataSort) e exporta só as visíveis úteis
+                        columns: [1, 2, 3, 4, 5, 6]
+                    },
+                    customize: function(doc) {
+                        // PDF simples e legível
+                        doc.pageMargins = [20, 20, 20, 20];
+                        doc.defaultStyle.fontSize = 9;
+                        doc.styles.tableHeader.fontSize = 10;
+
+                        // Deixa a tabela usar largura total
+                        const content = doc.content || [];
+                        const tableNode = content.find(n => n.table);
+                        if (tableNode && tableNode.table && tableNode.table.body && tableNode.table.body[0]) {
+                            tableNode.table.widths = Array(tableNode.table.body[0].length).fill('*');
+                        }
+                    }
+                },
+
+                // Opcional: botão de print do navegador (vira PDF também se o user salvar como PDF)
+                // {
+                //   extend: 'print',
+                //   text: '🧾 Imprimir',
+                //   className: 'btn btn-outline-secondary btn-sm',
+                //   exportOptions: { columns: [1,2,3,4,5,6] }
+                // }
+            ],
+
+            // Ordena por DataSort (coluna 0) desc
+            order: [
+                [0, 'desc']
+            ],
+
+            columnDefs: [{
+                    targets: 0,
+                    visible: false,
+                    searchable: false
+                }, // DataSort
+                {
+                    targets: 3,
+                    className: 'text-center'
+                } // Qtd
+            ],
+
+            pageLength: 25,
+            lengthMenu: [10, 25, 50, 100, 300],
+            stateSave: true,
+            autoWidth: false,
+            responsive: false,
+
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/pt-BR.json'
+            }
+        });
+    });
+</script>
+
+
 
 <?= $this->endSection() ?>
