@@ -30,6 +30,37 @@ $routes->group('', ['filter' => 'webauth'], static function ($routes) {
         $r->get('(:num)/delete',  'Ordem::delete/$1',           ['filter' => 'role:min:2']);
     });
 
+    /**
+     * ESTOQUE: gerente/admin (1+)
+     * Padrão igual "ordens": /estoque, /estoque/create, etc.
+     */
+    $routes->group('estoque', static function ($r) {
+        $r->get('/',                    'Estoque::index',           ['filter' => 'role:min:1']);
+        $r->get('create',               'Estoque::create',          ['filter' => 'role:min:1']);
+        $r->post('',                    'Estoque::store',           ['filter' => 'role:min:1']); // POST /estoque
+        $r->get('(:num)/edit',          'Estoque::edit/$1',         ['filter' => 'role:min:1']);
+        $r->post('(:num)/update',       'Estoque::update/$1',       ['filter' => 'role:min:1']);
+        $r->get('(:num)/delete',        'Estoque::delete/$1',       ['filter' => 'role:min:2']); // se quiser só admin
+
+        $r->post('(:num)/movimentar',   'Estoque::movimentar/$1',   ['filter' => 'role:min:1']);
+
+        // Relatórios do estoque
+        $r->get('relatorios',           'Estoque::relatorios',      ['filter' => 'role:min:1']);
+    });
+
+    /**
+     * TIPOS DE ESTOQUE: separado e limpo
+     * /estoque-tipos, /estoque-tipos/create, etc.
+     */
+    $routes->group('estoque-tipos', static function ($r) {
+        $r->get('/',              'EstoqueTipos::index',      ['filter' => 'role:min:1']);
+        $r->get('create',         'EstoqueTipos::create',     ['filter' => 'role:min:1']);
+        $r->post('',              'EstoqueTipos::store',      ['filter' => 'role:min:1']); // POST /estoque-tipos
+        $r->get('(:num)/edit',    'EstoqueTipos::edit/$1',    ['filter' => 'role:min:1']);
+        $r->post('(:num)/update', 'EstoqueTipos::update/$1',  ['filter' => 'role:min:1']);
+        $r->get('(:num)/delete',  'EstoqueTipos::delete/$1',  ['filter' => 'role:min:2']); // se quiser só admin
+    });
+
     // Clientes: vendedor 0+, editar 1+, deletar 2
     $routes->group('clientes', static function ($r) {
         $r->get('/',              'Clientes::index',            ['filter' => 'role:min:0']);
@@ -51,11 +82,8 @@ $routes->group('', ['filter' => 'webauth'], static function ($routes) {
     });
 
     // Relatórios
-    $routes->group('relatorios', ['namespace' => 'App\Controllers'], function ($routes) {
-        // página inicial de relatórios (hub)
+    $routes->group('relatorios', ['namespace' => 'App\Controllers'], static function ($routes) {
         $routes->get('/', 'Relatorios::index');
-
-        // relatório de ordens (com filtros via GET)
         $routes->get('ordens', 'Relatorios::ordens');
     });
 });

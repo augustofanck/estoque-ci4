@@ -55,4 +55,12 @@ abstract class BaseController extends Controller
 
         // E.g.: $this->session = service('session');
     }
+
+    protected function requireMinRole(int $min)
+    {
+        if (!has_min_role($min)) {
+            return redirect()->to('/')->with('error', 'Acesso não permitido!');
+        }
+        return null;
+    }
 }
