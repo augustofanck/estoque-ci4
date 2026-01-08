@@ -38,6 +38,7 @@ class OrdemModel extends Model
         'dia_nota',
         'numero_nota',
         'vendedor',
+        'obs',
     ];
 
     protected $validationRules = [

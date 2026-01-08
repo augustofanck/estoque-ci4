@@ -259,13 +259,13 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                         <label class="form-check-label" for="nota_gerada">Nota gerada?</label>
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-2">
                     <label class="form-label">Dia da nota</label>
                     <input type="text" name="dia_nota" class="form-control date-mask"
                         placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
                         value="<?= old('dia_nota', $ordem['dia_nota'] ?? '') ?>">
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-2">
                     <label class="form-label">Número Nota</label>
                     <input type="text" name="numero_nota" class="form-control only-number" inputmode="numeric" maxlength="10" value="<?= old('numero_nota', $ordem['numero_nota'] ?? '') ?>">
                 </div>
@@ -274,6 +274,10 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                     <input type="text" name="vendedor" class="form-control"
                         placeholder="Nome do Vendedor"
                         value="<?= old('vendedor', $ordem['vendedor'] ?? '') ?>">
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label">Observações</label>
+                    <textarea name="obs" id="obs" class="form-control" placeholder="Observações Gerais"><?= old('obs', $ordem['obs'] ?? '') ?></textarea>
                 </div>
             </div>
         </div>
