@@ -534,7 +534,7 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
 
                 // PATCH: no edit, volta pra própria edição; no create, volta pra lista
                 if (json.ok) {
-                    window.location.href = "<?= $isEdit ? site_url('ordens/' . ($ordem['id'] ?? 0) . '/edit') : site_url('ordens') ?>";
+                    window.location.href = json.redirect || "<?= site_url('ordens') ?>";
                 }
             });
         }

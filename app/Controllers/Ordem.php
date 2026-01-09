@@ -248,19 +248,27 @@ class Ordem extends BaseController
                 ->with('errors', $errors);
         }
 
+        // ID recém-criado
+        $newId = (int)$this->model->getInsertID();
+
+        // URL alvo: editar a ordem criada
+        $redirectUrl = site_url('ordens/' . $newId . '/edit');
+
         if ($isAjax) {
             return $this->response->setJSON([
-                'ok'   => true,
-                'id'   => $this->model->getInsertID(),
-                'msg'  => 'Registro criado com sucesso!',
-                'csrf' => csrf_hash(),
+                'ok'       => true,
+                'id'       => $newId,
+                'redirect' => $redirectUrl,
+                'msg'      => 'Registro criado com sucesso!',
+                'csrf'     => csrf_hash(),
             ]);
         }
 
         return redirect()
-            ->to(site_url('ordens'))
+            ->to($redirectUrl)
             ->with('msg', 'Registro criado com sucesso!');
     }
+
 
     public function edit($id)
     {
