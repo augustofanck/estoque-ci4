@@ -2,7 +2,6 @@
 <?= $this->section('content') ?>
 
 <?php
-// Utilitário para traduzir meses
 function mesLabel($anoMes)
 {
     $ts = strtotime($anoMes . '-01');
@@ -25,7 +24,6 @@ setlocale(LC_TIME, 'pt_BR.UTF-8', 'pt_BR', 'Portuguese_Brazil');
     ?>
 
     <div class="d-flex flex-wrap gap-2 align-items-center">
-        <!-- Select de meses -->
         <form method="get" class="d-flex gap-2 align-items-center">
             <select name="mes" id="mes" class="form-select form-select-sm shadow-sm" onchange="this.form.submit()">
                 <option value="">-- Mês atual --</option>
@@ -45,7 +43,6 @@ setlocale(LC_TIME, 'pt_BR.UTF-8', 'pt_BR', 'Portuguese_Brazil');
             <?php endif; ?>
         </form>
 
-        <!-- Botões rápidos -->
         <a href="<?= site_url('ordens/create') ?>" class="btn btn-sm btn-primary shadow-sm">+ Nova Ordem</a>
         <a href="<?= site_url('clientes/create') ?>" class="btn btn-sm btn-outline-secondary shadow-sm">+ Novo Cliente</a>
         <a href="<?= esc($toggleUrl) ?>" class="btn btn-sm btn-outline-dark"><?= esc($toggleLabel) ?></a>
@@ -56,18 +53,20 @@ setlocale(LC_TIME, 'pt_BR.UTF-8', 'pt_BR', 'Portuguese_Brazil');
 $lucro      = (float)($stats['valor_lucro'] ?? 0);
 $lucroClass = $stats['lucro_class'] ?? ($lucro >= 0 ? 'text-success' : 'text-danger');
 $periodoLbl = $stats['periodo_label'] ?? ($mesFiltro ? ucfirst(mesLabel($mesFiltro)) : 'Mês atual');
+
+$saldoAberto = (float)($stats['saldo_aberto'] ?? 0);
+$imposto     = (float)($stats['valor_imposto'] ?? 0);
 ?>
 
-<!-- KPIs principais -->
 <div class="row g-3 mb-4">
 
     <?php if (!empty($canSeeLimited) && $canSeeLimited): ?>
 
-        <!-- VENDEDOR: apenas Faturamento e Valor Recebido -->
+        <!-- VENDEDOR: visão enxuta -->
         <div class="col-sm-6 col-lg-4">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body text-center">
-                    <div class="text-muted small">Faturamento (estimado)</div>
+                    <div class="text-muted small">Faturamento (vendas)</div>
                     <div class="h4 fw-bold text-primary">
                         R$ <?= number_format((float)($stats['faturamento_estimado'] ?? 0), 2, ',', '.') ?>
                     </div>
@@ -79,7 +78,7 @@ $periodoLbl = $stats['periodo_label'] ?? ($mesFiltro ? ucfirst(mesLabel($mesFilt
         <div class="col-sm-6 col-lg-4">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body text-center">
-                    <div class="text-muted small">Valor Recebido</div>
+                    <div class="text-muted small">Recebido (caixa)</div>
                     <div class="h4 fw-bold text-success">
                         R$ <?= number_format((float)($stats['valor_pago'] ?? 0), 2, ',', '.') ?>
                     </div>
@@ -88,10 +87,22 @@ $periodoLbl = $stats['periodo_label'] ?? ($mesFiltro ? ucfirst(mesLabel($mesFilt
             </div>
         </div>
 
+        <div class="col-sm-6 col-lg-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">Em aberto</div>
+                    <div class="h4 fw-bold text-danger">
+                        R$ <?= number_format($saldoAberto, 2, ',', '.') ?>
+                    </div>
+                    <div class="small text-muted"><?= esc($periodoLbl) ?></div>
+                </div>
+            </div>
+        </div>
+
     <?php elseif (!empty($canSeeAllFin) && $canSeeAllFin): ?>
 
-        <!-- ADMIN/GERENTE: todos os cards -->
-        <div class="col-sm-6 col-lg-2">
+        <!-- ADMIN/GERENTE: visão completa (8 cards em 2 linhas) -->
+        <div class="col-sm-6 col-lg-3">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body text-center">
                     <div class="text-muted small">Ordens</div>
@@ -101,10 +112,10 @@ $periodoLbl = $stats['periodo_label'] ?? ($mesFiltro ? ucfirst(mesLabel($mesFilt
             </div>
         </div>
 
-        <div class="col-sm-6 col-lg-2">
+        <div class="col-sm-6 col-lg-3">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body text-center">
-                    <div class="text-muted small">Faturamento</div>
+                    <div class="text-muted small">Faturamento (vendas)</div>
                     <div class="h4 fw-bold text-primary">
                         R$ <?= number_format((float)($stats['faturamento_estimado'] ?? 0), 2, ',', '.') ?>
                     </div>
@@ -113,10 +124,10 @@ $periodoLbl = $stats['periodo_label'] ?? ($mesFiltro ? ucfirst(mesLabel($mesFilt
             </div>
         </div>
 
-        <div class="col-sm-6 col-lg-2">
+        <div class="col-sm-6 col-lg-3">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body text-center">
-                    <div class="text-muted small">Recebido</div>
+                    <div class="text-muted small">Recebido (caixa)</div>
                     <div class="h4 fw-bold text-success">
                         R$ <?= number_format((float)($stats['valor_pago'] ?? 0), 2, ',', '.') ?>
                     </div>
@@ -125,7 +136,19 @@ $periodoLbl = $stats['periodo_label'] ?? ($mesFiltro ? ucfirst(mesLabel($mesFilt
             </div>
         </div>
 
-        <div class="col-sm-6 col-lg-2">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">Em aberto</div>
+                    <div class="h4 fw-bold text-danger">
+                        R$ <?= number_format($saldoAberto, 2, ',', '.') ?>
+                    </div>
+                    <div class="small text-muted"><?= esc($periodoLbl) ?></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body text-center">
                     <div class="text-muted small">Consultas</div>
@@ -137,7 +160,7 @@ $periodoLbl = $stats['periodo_label'] ?? ($mesFiltro ? ucfirst(mesLabel($mesFilt
             </div>
         </div>
 
-        <div class="col-sm-6 col-lg-2">
+        <div class="col-sm-6 col-lg-3">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body text-center">
                     <div class="text-muted small">Custo Itens</div>
@@ -149,7 +172,19 @@ $periodoLbl = $stats['periodo_label'] ?? ($mesFiltro ? ucfirst(mesLabel($mesFilt
             </div>
         </div>
 
-        <div class="col-sm-6 col-lg-2">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body text-center">
+                    <div class="text-muted small">Imposto (7%)</div>
+                    <div class="h4 fw-bold text-danger">
+                        R$ <?= number_format($imposto, 2, ',', '.') ?>
+                    </div>
+                    <div class="small text-muted"><?= esc($periodoLbl) ?></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body text-center">
                     <div class="text-muted small">Lucro</div>
@@ -171,15 +206,15 @@ $periodoLbl = $stats['periodo_label'] ?? ($mesFiltro ? ucfirst(mesLabel($mesFilt
     <?php endif; ?>
 </div>
 
-<!-- Últimos 14 dias -->
-
-<?php if (isset($canSeeLimited) && (int)$canSeeLimited === 0): ?>
+<!-- Últimos 14 dias (somente gerente/admin) -->
+<?php if (!empty($canSeeAllFin) && $canSeeAllFin): ?>
 
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-header bg-white d-flex justify-content-between align-items-center">
             <strong>📅 Últimos 14 dias</strong>
             <span class="small text-muted">Toque para detalhar</span>
         </div>
+
         <div class="card-body p-0">
             <?php if (!empty($dias_ultimos)): ?>
                 <div class="accordion" id="accUltimosDias">
@@ -197,6 +232,7 @@ $periodoLbl = $stats['periodo_label'] ?? ($mesFiltro ? ucfirst(mesLabel($mesFilt
                                     </div>
                                 </button>
                             </h2>
+
                             <div id="c-<?= $itemId ?>" class="accordion-collapse collapse" aria-labelledby="h-<?= $itemId ?>"
                                 data-bs-parent="#accUltimosDias">
                                 <div class="accordion-body">
@@ -237,7 +273,7 @@ $periodoLbl = $stats['periodo_label'] ?? ($mesFiltro ? ucfirst(mesLabel($mesFilt
                                                 <div class="fw-bold text-warning">R$ <?= number_format((float)$d['custo'], 2, ',', '.') ?></div>
                                             </div>
                                         </div>
-                                    </div> <!-- row -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -252,7 +288,6 @@ $periodoLbl = $stats['periodo_label'] ?? ($mesFiltro ? ucfirst(mesLabel($mesFilt
 <?php endif; ?>
 
 
-<!-- Últimas ordens + Relatórios -->
 <div class="row g-3">
     <div class="col-12 col-xl-7">
         <div class="card shadow-sm h-100 border-0">

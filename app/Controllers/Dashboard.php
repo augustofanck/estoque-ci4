@@ -8,130 +8,216 @@ class Dashboard extends BaseController
 {
     public function index()
     {
-        $range     = (string) ($this->request->getGet('range') ?? '30');     // 7|30|90
+        $range     = (string) ($this->request->getGet('range') ?? '30');     // 7|30|90 (pode usar futuramente)
         $status    = (string) ($this->request->getGet('status') ?? 'todos'); // todos|aberta|fechada
         $kpiScope  = (string) ($this->request->getGet('kpi') ?? 'dia');      // dia|mes
         $mesFiltro = (string) ($this->request->getGet('mes') ?? '');         // YYYY-MM
 
         $db = \Config\Database::connect();
-        $T  = 'ordens';
 
-        $dias       = ctype_digit($range) ? (int) $range : 30;
-        $iniPeriodo = date('Y-m-d 00:00:00', strtotime('-' . ($dias - 1) . ' days'));
-        $fimPeriodo = date('Y-m-d 23:59:59');
-
-        $ontem     = (new \DateTime('yesterday'))->format('Y-m-d');
-        $iniOntem  = $ontem . ' 00:00:00';
-        $fimOntem  = $ontem . ' 23:59:59';
-
-        // --------- helper para registros não deletados ---------
-        $notDeleted = function (\CodeIgniter\Database\BaseBuilder $b, string $t) {
+        // ---------- helpers ----------
+        $notDeleted = function (\CodeIgniter\Database\BaseBuilder $b, string $alias) {
             $b->groupStart()
-                ->where("$t.deleted_at IS NULL", null, false)
-                ->orWhere("$t.deleted_at", '')
-                ->orWhere("$t.deleted_at", '0000-00-00 00:00:00')
+                ->where("$alias.deleted_at IS NULL", null, false)
+                ->orWhere("$alias.deleted_at", '')
+                ->orWhere("$alias.deleted_at", '0000-00-00 00:00:00')
                 ->groupEnd();
         };
 
-        // ---------- Funções auxiliares ----------
-        $sumCols = function (array $row, array $cols): float {
-            $s = 0.0;
-            foreach ($cols as $c) {
-                $s += (float)($row[$c] ?? 0);
+        $applyStatus = function (\CodeIgniter\Database\BaseBuilder $b, string $alias) use ($status) {
+            if (!empty($status) && $status !== 'todos') {
+                $b->where("$alias.status", $status);
             }
-            return $s;
         };
 
-        $colsCusto = ['valor_armacao_1', 'valor_armacao_2', 'valor_lente_1', 'valor_lente_2'];
+        // ---------- períodos ----------
+        $ontemDate = (new \DateTime('yesterday'))->format('Y-m-d');
+        $iniOntemDt = $ontemDate . ' 00:00:00';
+        $fimOntemDt = $ontemDate . ' 23:59:59';
 
-        $sumBetween = function (string $col, string $ini, string $fim) use ($db, $T, $notDeleted) {
-            $b = $db->table($T)->select("SUM($col) AS s")
-                ->where('data_compra >=', $ini)->where('data_compra <=', $fim);
-            $notDeleted($b, 'ordens');
-            $row = $b->get()->getRowArray();
-            return $row && $row['s'] !== null ? (float)$row['s'] : 0.0;
-        };
-
-        $countBetween = function (string $ini, string $fim, ?string $status) use ($db, $T, $notDeleted) {
-            $b = $db->table($T)->select('COUNT(*) AS c')
-                ->where('data_compra >=', $ini)->where('data_compra <=', $fim);
-            if ($status && $status !== 'todos') $b->where('status', $status);
-            $notDeleted($b, 'ordens');
-            return (int)($b->get()->getRow('c') ?? 0);
-        };
-
-        $custoEntre = function (string $ini, string $fim) use ($db, $T, $notDeleted, $colsCusto, $sumCols) {
-            $b = $db->table($T)->select(implode(',', array_merge(['data_compra'], $colsCusto)))
-                ->where('data_compra >=', $ini)->where('data_compra <=', $fim);
-            $notDeleted($b, 'ordens');
-            $total = 0.0;
-            foreach ($b->get()->getResultArray() as $o) {
-                $total += $sumCols($o, $colsCusto);
-            }
-            return $total;
-        };
-
-        $consultasEntre = function (string $ini, string $fim) use ($db, $T, $notDeleted) {
-            $b = $db->table($T)->select("SUM(consulta) AS s")
-                ->where('data_compra >=', $ini)->where('data_compra <=', $fim);
-            $notDeleted($b, 'ordens');
-            $row = $b->get()->getRowArray();
-            return $row && $row['s'] !== null ? (float)$row['s'] : 0.0;
-        };
-
-        // ---------- KPI scope ----------
         if ($kpiScope === 'dia') {
-            // KPIs do dia anterior
             $labelPeriodo = 'Ontem';
-            $ordensTotal  = $countBetween($iniOntem, $fimOntem, $status);
-            $fat          = $sumBetween('valor_venda', $iniOntem, $fimOntem);
-            $pago         = $sumBetween('valor_pago',  $iniOntem, $fimOntem);
-            $consultas    = $consultasEntre($iniOntem, $fimOntem);
-            $custoItens   = $custoEntre($iniOntem, $fimOntem);
+            $iniOrdDate = $ontemDate;
+            $fimOrdDate = $ontemDate;
+
+            $iniPayDt = $iniOntemDt;
+            $fimPayDt = $fimOntemDt;
         } else {
-            // Se usuário filtrou mês, usar ele
+            // mês selecionado ou mês atual
             if (!empty($mesFiltro)) {
-                $iniMes = date('Y-m-01 00:00:00', strtotime($mesFiltro . '-01'));
-                $fimMes = date('Y-m-t 23:59:59', strtotime($mesFiltro . '-01'));
+                $iniOrdDate = date('Y-m-01', strtotime($mesFiltro . '-01'));
+                $fimOrdDate = date('Y-m-t',  strtotime($mesFiltro . '-01'));
                 $labelPeriodo = ucfirst(strftime('%B de %Y', strtotime($mesFiltro . '-01')));
             } else {
-                // Mês atual
-                $iniMes = date('Y-m-01 00:00:00');
-                $fimMes = date('Y-m-t 23:59:59');
+                $iniOrdDate = date('Y-m-01');
+                $fimOrdDate = date('Y-m-t');
                 $labelPeriodo = 'Mês atual';
             }
 
-            $ordensTotal  = $countBetween($iniMes, $fimMes, $status);
-            $fat          = $sumBetween('valor_venda', $iniMes, $fimMes);
-            $pago         = $sumBetween('valor_pago',  $iniMes, $fimMes);
-            $consultas    = $consultasEntre($iniMes, $fimMes);
-            $custoItens   = $custoEntre($iniMes, $fimMes);
+            $iniPayDt = $iniOrdDate . ' 00:00:00';
+            $fimPayDt = $fimOrdDate . ' 23:59:59';
         }
 
-        $imposto = $fat * 0.07;
-        $lucro   = ($pago * 0.9) - $imposto - $consultas - $custoItens;
+        // ---------- KPIs (ORDENS / VENDAS) ----------
+        $bOrd = $db->table('ordens o')->select("
+            COUNT(*) AS ordens_total,
+            COALESCE(SUM(o.valor_venda),0) AS faturamento,
+            COALESCE(SUM(o.consulta),0) AS consultas,
+            COALESCE(SUM(
+                COALESCE(o.valor_armacao_1,0)
+              + COALESCE(o.valor_armacao_2,0)
+              + COALESCE(o.valor_lente_1,0)
+              + COALESCE(o.valor_lente_2,0)
+            ),0) AS custo_itens
+        ", false);
 
-        // ---------- Últimos 14 dias ----------
+        $bOrd->where('o.data_compra >=', $iniOrdDate)->where('o.data_compra <=', $fimOrdDate);
+        $applyStatus($bOrd, 'o');
+        $notDeleted($bOrd, 'o');
+
+        $rowOrd = $bOrd->get()->getRowArray() ?: [];
+
+        $ordensTotal = (int)($rowOrd['ordens_total'] ?? 0);
+        $fat         = (float)($rowOrd['faturamento'] ?? 0);
+        $consultas   = (float)($rowOrd['consultas'] ?? 0);
+        $custoItens  = (float)($rowOrd['custo_itens'] ?? 0);
+
+        // ---------- KPIs (PAGAMENTOS / CAIXA) ----------
+        $bPay = $db->table('ordens_pagamento p')
+            ->select("COALESCE(SUM(p.valor),0) AS recebido", false)
+            ->join('ordens o', 'o.id = p.ordem_id', 'inner');
+
+        $bPay->where('p.status', 'confirmado');
+        $bPay->where('p.data_pagamento >=', $iniPayDt)->where('p.data_pagamento <=', $fimPayDt);
+
+        $applyStatus($bPay, 'o');
+        $notDeleted($bPay, 'p');
+        $notDeleted($bPay, 'o');
+
+        $rowPay = $bPay->get()->getRowArray() ?: [];
+        $recebido = (float)($rowPay['recebido'] ?? 0);
+
+        // ---------- SALDO EM ABERTO (ordens do período) ----------
+        // subquery com total pago por ordem (confirmado)
+        $subPago = $db->table('ordens_pagamento')
+            ->select('ordem_id, COALESCE(SUM(valor),0) AS total_pago', false)
+            ->where('status', 'confirmado')
+            ->groupStart()
+            ->where("deleted_at IS NULL", null, false)
+            ->orWhere("deleted_at", '')
+            ->orWhere("deleted_at", '0000-00-00 00:00:00')
+            ->groupEnd()
+            ->groupBy('ordem_id');
+
+        $subSql = $subPago->getCompiledSelect();
+
+        $bSaldo = $db->table('ordens o')
+            ->select("COALESCE(SUM(GREATEST(o.valor_venda - COALESCE(pg.total_pago,0), 0)),0) AS saldo_aberto", false)
+            ->join("($subSql) pg", "pg.ordem_id = o.id", 'left', false);
+
+        $bSaldo->where('o.data_compra >=', $iniOrdDate)->where('o.data_compra <=', $fimOrdDate);
+        $applyStatus($bSaldo, 'o');
+        $notDeleted($bSaldo, 'o');
+
+        $rowSaldo = $bSaldo->get()->getRowArray() ?: [];
+        $saldoAberto = (float)($rowSaldo['saldo_aberto'] ?? 0);
+
+        // ---------- IMPOSTO / LUCRO ----------
+        $imposto = $fat * 0.07;
+
+        // Mantive a lógica “parecida” com a antiga (que usava valor_pago)
+        // Só que agora "recebido" vem da tabela de pagamentos no período.
+        $lucro = ($recebido * 0.9) - $imposto - $consultas - $custoItens;
+        $lucroClass = $lucro >= 0 ? 'text-success' : 'text-danger';
+
+        // ---------- CUSTO DO DIA ANTERIOR (sempre ontem, para o rodapé) ----------
+        $bCustoOntem = $db->table('ordens o')->select("
+            COALESCE(SUM(
+                COALESCE(o.valor_armacao_1,0)
+              + COALESCE(o.valor_armacao_2,0)
+              + COALESCE(o.valor_lente_1,0)
+              + COALESCE(o.valor_lente_2,0)
+            ),0) AS custo_ontem
+        ", false);
+
+        $bCustoOntem->where('o.data_compra', $ontemDate);
+        $applyStatus($bCustoOntem, 'o');
+        $notDeleted($bCustoOntem, 'o');
+        $custoOntem = (float)(($bCustoOntem->get()->getRowArray()['custo_ontem'] ?? 0));
+
+        // ---------- Últimos 14 dias (agregado, sem 300 queries) ----------
+        $fim14Date = date('Y-m-d');
+        $ini14Date = date('Y-m-d', strtotime('-13 days'));
+
+        $ini14PayDt = $ini14Date . ' 00:00:00';
+        $fim14PayDt = $fim14Date . ' 23:59:59';
+
+        // ordens agrupadas por data_compra (DATE)
+        $bOrd14 = $db->table('ordens o')->select("
+            o.data_compra AS data,
+            COUNT(*) AS ordens,
+            COALESCE(SUM(o.valor_venda),0) AS faturamento,
+            COALESCE(SUM(o.consulta),0) AS consultas,
+            COALESCE(SUM(
+                COALESCE(o.valor_armacao_1,0)
+              + COALESCE(o.valor_armacao_2,0)
+              + COALESCE(o.valor_lente_1,0)
+              + COALESCE(o.valor_lente_2,0)
+            ),0) AS custo
+        ", false);
+
+        $bOrd14->where('o.data_compra >=', $ini14Date)->where('o.data_compra <=', $fim14Date);
+        $applyStatus($bOrd14, 'o');
+        $notDeleted($bOrd14, 'o');
+        $bOrd14->groupBy('o.data_compra');
+
+        $mapOrd = [];
+        foreach ($bOrd14->get()->getResultArray() as $r) {
+            $mapOrd[$r['data']] = $r;
+        }
+
+        // pagamentos agrupados por DATE(data_pagamento)
+        $bPay14 = $db->table('ordens_pagamento p')->select("
+            DATE(p.data_pagamento) AS data,
+            COALESCE(SUM(p.valor),0) AS recebido
+        ", false)->join('ordens o', 'o.id = p.ordem_id', 'inner');
+
+        $bPay14->where('p.status', 'confirmado');
+        $bPay14->where('p.data_pagamento >=', $ini14PayDt)->where('p.data_pagamento <=', $fim14PayDt);
+        $applyStatus($bPay14, 'o');
+        $notDeleted($bPay14, 'p');
+        $notDeleted($bPay14, 'o');
+        $bPay14->groupBy('DATE(p.data_pagamento)');
+
+        $mapPay = [];
+        foreach ($bPay14->get()->getResultArray() as $r) {
+            $mapPay[$r['data']] = $r;
+        }
+
+        // monta lista final
         $diasLista = [];
         for ($i = 0; $i < 14; $i++) {
             $d = (new \DateTime("today"))->modify("-{$i} days")->format('Y-m-d');
-            $ini = $d . ' 00:00:00';
-            $fim = $d . ' 23:59:59';
 
-            $ord  = $countBetween($ini, $fim, $status);
-            $fatD = $sumBetween('valor_venda', $ini, $fim);
-            $pagD = $sumBetween('valor_pago',  $ini, $fim);
+            $ordRow = $mapOrd[$d] ?? null;
+            $payRow = $mapPay[$d] ?? null;
+
+            $ord  = (int)($ordRow['ordens'] ?? 0);
+            $fatD = (float)($ordRow['faturamento'] ?? 0);
+            $conD = (float)($ordRow['consultas'] ?? 0);
+            $cusD = (float)($ordRow['custo'] ?? 0);
+
+            $recD = (float)($payRow['recebido'] ?? 0);
+
             $impD = $fatD * 0.07;
-            $cusD = $custoEntre($ini, $fim);
-            $conD = $consultasEntre($ini, $fim);
-            $lucD = ($pagD * 0.9) - $impD - $conD - $cusD;
+            $lucD = ($recD * 0.9) - $impD - $conD - $cusD;
 
             $diasLista[] = [
                 'data_iso'    => $d,
                 'label'       => date('d/m', strtotime($d)),
                 'ordens'      => $ord,
                 'faturamento' => $fatD,
-                'valor_pago'  => $pagD,
+                'valor_pago'  => $recD, // mantém chave antiga p/ view (agora é "recebido")
                 'imposto'     => $impD,
                 'consultas'   => $conD,
                 'custo'       => $cusD,
@@ -140,37 +226,40 @@ class Dashboard extends BaseController
         }
 
         // ---------- Últimas ordens ----------
-        $bUlt = $db->table($T)
-            ->select('ordens.id, ordens.status, ordens.data_compra, c.nome AS cliente')
-            ->join('clientes c', 'c.id = ordens.cliente_id', 'left')
-            ->orderBy('ordens.data_compra', 'DESC')
+        $bUlt = $db->table('ordens o')
+            ->select('o.id, o.status, o.data_compra, c.nome AS cliente')
+            ->join('clientes c', 'c.id = o.cliente_id', 'left')
+            ->orderBy('o.data_compra', 'DESC')
             ->limit(8);
-        $notDeleted($bUlt, 'ordens');
+
+        $notDeleted($bUlt, 'o');
         $notDeleted($bUlt, 'c');
         $ultimasOrdens = $bUlt->get()->getResultArray();
 
-        $lucroClass = $lucro >= 0 ? 'text-success' : 'text-danger';
+        $role = role_level();
 
         $data = [
             'title'   => 'Dashboard',
             'filtros' => [
-                'range' => $range,
+                'range'  => $range,
                 'status' => $status,
-                'mes' => $mesFiltro,
+                'mes'    => $mesFiltro,
             ],
             'kpi_scope' => $kpiScope,
             'stats' => [
                 'periodo_label'        => $labelPeriodo,
                 'ordens_total'         => $ordensTotal,
                 'faturamento_estimado' => $fat,
-                'valor_pago'           => $pago,
+                'valor_pago'           => $recebido, // agora é recebido (caixa)
+                'saldo_aberto'         => $saldoAberto,
                 'valor_imposto'        => $imposto,
                 'valor_consultas'      => $consultas,
                 'valor_custo_itens'    => $custoItens,
                 'valor_lucro'          => $lucro,
                 'lucro_class'          => $lucroClass,
+                'custo_dia_anterior'   => $custoOntem,
             ],
-            'role'                => $role = role_level(),
+            'role'                => $role,
             'canSeeAllFin'        => $role >= 1,
             'canSeeLimited'       => $role === 0,
             'dias_ultimos'        => $diasLista,
