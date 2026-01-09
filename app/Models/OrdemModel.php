@@ -19,9 +19,7 @@ class OrdemModel extends Model
         'ordem_servico',
         'nome_cliente',
         'valor_venda',
-        'valor_entrada',
         'forma_pagamento_entrada',
-        'valor_pago',
         'formas_pagamento',
         'valor_armacao_1',
         'valor_armacao_2',
@@ -46,8 +44,6 @@ class OrdemModel extends Model
         'data_compra'               => 'permit_empty|valid_date[Y-m-d]',
 
         'valor_venda'               => 'required',
-        'valor_entrada'             => 'required',
-        'valor_pago'                => 'required',
         'valor_armacao_1'           => 'required',
         'valor_lente_1'             => 'required',
         'consulta'                  => 'required',
@@ -75,12 +71,6 @@ class OrdemModel extends Model
         'valor_venda' => [
             'required' => 'Informe o valor de venda.',
         ],
-        'valor_entrada' => [
-            'required' => 'Informe o valor de entrada.',
-        ],
-        'valor_pago' => [
-            'required' => 'Informe o valor pago.',
-        ],
         'valor_armacao_1' => [
             'required' => 'Informe o valor da armação.',
         ],
@@ -94,8 +84,6 @@ class OrdemModel extends Model
             'required' => 'Informe o pagamento do laboratório.',
         ]
     ];
-
-    // dentro de App\Models\OrdemModel
 
     public function relatorioPorPeriodo(string $dataInicio, string $dataFim): array
     {

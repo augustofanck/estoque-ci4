@@ -8,11 +8,23 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
 
 <h1 class="h3 mb-3"><?= $isEdit ? 'Editar Ordem' : 'Nova Ordem' ?></h1>
 
+<?php if ($msg = session()->getFlashdata('msg')): ?>
+    <div class="alert alert-success"><?= esc($msg) ?></div>
+<?php endif; ?>
+
+<?php if ($errs = session()->getFlashdata('errors')): ?>
+    <div class="alert alert-danger">
+        <?= implode('<br>', array_map('esc', (array)$errs)) ?>
+    </div>
+<?php endif; ?>
+
+<script>
+    // Nome do campo CSRF (ex.: csrf_test_name)
+    const CSRF_NAME = "<?= csrf_token() ?>";
+</script>
+
 <form id="formOrdem" method="post" action="<?= $action ?>">
     <?= csrf_field() ?>
-    <script>
-        const CSRF_NAME_ORDEM = "<?= csrf_token() ?>";
-    </script>
 
     <div id="errorsBox" class="alert alert-danger d-none"></div>
 
@@ -54,11 +66,40 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
         </div>
     </div>
 
-    <!-- Valores e Pagamento -->
+    <?php
+    $fin = $financeiro ?? [];
+    $totalPago = (float)($fin['total_pago'] ?? 0);
+    $saldo     = (float)($fin['saldo'] ?? 0);
+    $qtdPag    = (int)($fin['qtd_pagamentos'] ?? 0);
+
+    $valorVenda = (float)($ordem['valor_venda'] ?? 0);
+    $quitado = ($valorVenda > 0 && $saldo <= 0.0001);
+
+    $badgeTotalPago =
+        $quitado ? 'bg-success'
+        : ($totalPago > 0 ? 'bg-warning text-dark' : 'bg-secondary');
+
+    $badgeSaldo =
+        ($saldo > 0.0001) ? 'bg-danger' : 'bg-success';
+
+    $saldoDisplay = ($saldo < 0) ? 0 : $saldo;
+    ?>
+
     <div class="card mb-3">
-        <div class="card-header fw-semibold">Valores e Pagamento</div>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-semibold">Valores e Pagamento</span>
+
+            <?php if ($isEdit): ?>
+                <button type="button" class="btn btn-sm btn-outline-primary"
+                    data-bs-toggle="modal" data-bs-target="#modalPagamento">
+                    + Pagamento
+                </button>
+            <?php endif; ?>
+        </div>
+
         <div class="card-body">
             <div class="row g-3">
+
                 <div class="col-md-3">
                     <label class="form-label">Valor de venda</label>
                     <div class="input-group">
@@ -70,44 +111,30 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                 </div>
 
                 <div class="col-md-3">
-                    <label class="form-label">Entrada</label>
-                    <div class="input-group">
-                        <span class="input-group-text">R$</span>
-                        <input type="text" inputmode="decimal" name="valor_entrada" class="form-control"
-                            placeholder="0,00"
-                            value="<?= old('valor_entrada', $ordem['valor_entrada'] ?? '') ?>">
-                    </div>
-                </div>
-
-                <div class="col-md-3">
-                    <label class="form-label">Forma da entrada</label>
-                    <select name="forma_pagamento_entrada" class="form-select">
-                        <option value="">Selecione...</option>
-                        <option value="Pix" <?= old('forma_pagamento_entrada', $ordem['forma_pagamento_entrada'] ?? '') === 'Pix' ? 'selected' : '' ?>>Pix</option>
-                        <option value="Cartão" <?= old('forma_pagamento_entrada', $ordem['forma_pagamento_entrada'] ?? '') === 'Cartão' ? 'selected' : '' ?>>Cartão</option>
-                        <option value="Dinheiro" <?= old('forma_pagamento_entrada', $ordem['forma_pagamento_entrada'] ?? '') === 'Dinheiro' ? 'selected' : '' ?>>Dinheiro</option>
-                    </select>
-                </div>
-
-                <div class="col-md-3">
                     <label class="form-label">Total pago</label>
-                    <div class="input-group">
-                        <span class="input-group-text">R$</span>
-                        <input type="text" inputmode="decimal" name="valor_pago" class="form-control"
-                            placeholder="0,00"
-                            value="<?= old('valor_pago', $ordem['valor_pago'] ?? '') ?>">
+                    <div>
+                        <span class="badge <?= $badgeTotalPago ?> fs-6">
+                            R$ <?= number_format($totalPago, 2, ',', '.') ?>
+                        </span>
                     </div>
                 </div>
 
-                <div class="col-md-6">
-                    <label class="form-label">Formas de pagamento</label>
-                    <select name="formas_pagamento" class="form-select">
-                        <option value="">Selecione...</option>
-                        <option value="Pix" <?= old('formas_pagamento', $ordem['formas_pagamento'] ?? '') === 'Pix' ? 'selected' : '' ?>>Pix</option>
-                        <option value="Cartão" <?= old('formas_pagamento', $ordem['formas_pagamento'] ?? '') === 'Cartão' ? 'selected' : '' ?>>Cartão</option>
-                        <option value="Dinheiro" <?= old('formas_pagamento', $ordem['formas_pagamento'] ?? '') === 'Dinheiro' ? 'selected' : '' ?>>Dinheiro</option>
-                    </select>
-                    <div class="form-text">Ex.: Pix, Cartão (3x), Dinheiro.</div>
+                <div class="col-md-3">
+                    <label class="form-label">Saldo</label>
+                    <div>
+                        <span class="badge <?= $badgeSaldo ?> fs-6">
+                            R$ <?= number_format($saldoDisplay, 2, ',', '.') ?>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Nº pagamentos</label>
+                    <div>
+                        <span class="badge bg-light text-dark fs-6">
+                            <?= $qtdPag ?>
+                        </span>
+                    </div>
                 </div>
 
                 <div class="col-md-6">
@@ -119,7 +146,73 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                             value="<?= old('consulta', $ordem['consulta'] ?? '') ?>">
                     </div>
                 </div>
+
             </div>
+
+            <?php if ($isEdit): ?>
+                <hr class="my-4">
+
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Valor</th>
+                                <th>Forma</th>
+                                <th>Status</th>
+                                <th>Tipo</th>
+                                <th>Obs.</th>
+                                <th class="text-end">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($pagamentos)): ?>
+                                <tr>
+                                    <td colspan="7" class="text-muted text-center">Nenhum pagamento registrado.</td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($pagamentos as $p): ?>
+                                    <?php
+                                    $st = $p['status'] ?? '';
+                                    $stClass = 'bg-secondary';
+                                    if ($st === 'confirmado') $stClass = 'bg-success';
+                                    elseif ($st === 'pendente') $stClass = 'bg-warning text-dark';
+                                    elseif ($st === 'cancelado') $stClass = 'bg-secondary';
+                                    elseif ($st === 'estornado') $stClass = 'bg-dark';
+
+                                    $dataFmt = '';
+                                    if (!empty($p['data_pagamento'])) {
+                                        $ts = strtotime($p['data_pagamento']);
+                                        $dataFmt = $ts ? date('d/m/Y H:i', $ts) : (string)$p['data_pagamento'];
+                                    }
+                                    ?>
+                                    <tr>
+                                        <td><?= esc($dataFmt) ?></td>
+                                        <td>R$ <?= number_format((float)($p['valor'] ?? 0), 2, ',', '.') ?></td>
+                                        <td><?= esc($p['forma_nome'] ?? '—') ?></td>
+                                        <td><span class="badge <?= $stClass ?>"><?= esc($st) ?></span></td>
+                                        <td><span class="badge bg-light text-dark"><?= esc($p['tipo'] ?? '') ?></span></td>
+                                        <td><?= esc($p['obs'] ?? '') ?></td>
+                                        <td class="text-end">
+                                            <!-- PATCH: não usar submit aqui para não acionar o submit AJAX do formOrdem -->
+                                            <button type="button"
+                                                class="btn btn-sm btn-outline-danger"
+                                                onclick="return (confirm('Remover este pagamento?') && document.getElementById('delpay-<?= (int)$p['id'] ?>').submit());">
+                                                Remover
+                                            </button>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <div class="alert alert-info mt-3 mb-0">
+                    Salve a ordem para registrar pagamentos.
+                </div>
+            <?php endif; ?>
+
         </div>
     </div>
 
@@ -267,7 +360,8 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Número Nota</label>
-                    <input type="text" name="numero_nota" class="form-control only-number" inputmode="numeric" maxlength="10" value="<?= old('numero_nota', $ordem['numero_nota'] ?? '') ?>">
+                    <input type="text" name="numero_nota" class="form-control only-number" inputmode="numeric" maxlength="10"
+                        value="<?= old('numero_nota', $ordem['numero_nota'] ?? '') ?>">
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Vendedor</label>
@@ -290,13 +384,86 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
     </div>
 </form>
 
+<?php if ($isEdit): ?>
+    <div class="modal fade" id="modalPagamento" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Adicionar pagamento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+
+                <form method="post" action="<?= site_url('ordens/' . $ordem['id'] . '/pagamentos/add') ?>">
+                    <div class="modal-body">
+                        <?= csrf_field() ?>
+
+                        <div class="alert alert-warning">
+                            Se você alterou dados da ordem, salve antes de registrar o pagamento.
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Valor*</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">R$</span>
+                                    <input type="text" name="valor" class="form-control" inputmode="decimal"
+                                        placeholder="0,00" required>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Data do pagamento</label>
+                                <input type="text" name="data_pagamento" class="form-control date-mask"
+                                    placeholder="DD/MM/AAAA" maxlength="10">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Forma</label>
+                                <select name="forma_pagamento_id" class="form-select">
+                                    <option value="">Selecione...</option>
+                                    <?php foreach (($formasPagamento ?? []) as $fp): ?>
+                                        <option value="<?= (int)$fp['id'] ?>"><?= esc($fp['nome']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label">Obs.</label>
+                                <input type="text" name="obs" class="form-control" placeholder="Opcional">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button class="btn btn-primary" type="submit">Adicionar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
+<?php if ($isEdit && !empty($pagamentos)): ?>
+    <?php foreach ($pagamentos as $p): ?>
+        <form id="delpay-<?= (int)$p['id'] ?>"
+            method="post"
+            action="<?= site_url('ordens/' . $ordem['id'] . '/pagamentos/' . $p['id'] . '/delete') ?>"
+            class="d-none">
+            <?= csrf_field() ?>
+        </form>
+    <?php endforeach; ?>
+<?php endif; ?>
+
 <script src="<?= base_url('js/form-masks.js') ?>?v=<?= urlencode((string)ENVIRONMENT) ?>"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         if (window.FormsMasks) FormsMasks.applyAll(document);
     });
 </script>
+
 <?= $this->renderSection('page_scripts') ?>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('formOrdem');
@@ -332,8 +499,8 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                 const json = await res.json().catch(() => ({}));
 
                 if (json.csrf) {
-                    const csrfInputOrdem = form.querySelector(`input[name="${CSRF_NAME_ORDEM}"]`);
-                    if (csrfInputOrdem) csrfInputOrdem.value = json.csrf;
+                    document.querySelectorAll(`input[name="${CSRF_NAME}"]`)
+                        .forEach(el => el.value = json.csrf);
                 }
 
                 if (!res.ok || !json.ok) {
@@ -345,8 +512,9 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                     return;
                 }
 
+                // PATCH: no edit, volta pra própria edição; no create, volta pra lista
                 if (json.ok) {
-                    window.location.href = "<?= site_url('ordens') ?>";
+                    window.location.href = "<?= $isEdit ? site_url('ordens/' . ($ordem['id'] ?? 0) . '/edit') : site_url('ordens') ?>";
                 }
             });
         }
@@ -359,7 +527,6 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
     });
 </script>
 
-
 <!-- Modal Novo Cliente -->
 <div class="modal fade" id="modalCliente" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -371,10 +538,6 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
             <form id="formCliente" action="<?= site_url('clientes/store') ?>" method="post">
                 <div class="modal-body">
                     <?= csrf_field() ?>
-                    <!-- Captura o nome do token para atualizar via JS -->
-                    <script>
-                        const CSRF_NAME_CLIENTE = "<?= csrf_token() ?>";
-                    </script>
 
                     <div id="clienteErrors" class="alert alert-danger d-none"></div>
 
@@ -469,26 +632,20 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
 
             const json = await res.json().catch(() => ({}));
 
-            // Atualiza CSRF
+            // Atualiza CSRF (cliente + ordem)
             if (json.csrf) {
-                const csrfInputCliente = form.querySelector(`input[name="${CSRF_NAME_CLIENTE}"]`);
+                const csrfInputCliente = form.querySelector(`input[name="${CSRF_NAME}"]`);
                 if (csrfInputCliente) csrfInputCliente.value = json.csrf;
 
-                // também atualiza o form de ordem
-                const formOrdem = document.getElementById('formOrdem');
-                if (formOrdem) {
-                    const csrfInputOrdem = formOrdem.querySelector(`input[name="${CSRF_NAME_ORDEM}"]`);
-                    if (csrfInputOrdem) csrfInputOrdem.value = json.csrf;
-                }
+                document.querySelectorAll(`input[name="${CSRF_NAME}"]`)
+                    .forEach(el => el.value = json.csrf);
             }
 
             if (!res.ok || !json.ok) {
                 const errs = json.errors || {
                     geral: 'Erro ao salvar.'
                 };
-                errorsBox.innerHTML = Object.values(errs)
-                    .map(msg => `<div>${msg}</div>`)
-                    .join('');
+                errorsBox.innerHTML = Object.values(errs).map(msg => `<div>${msg}</div>`).join('');
                 errorsBox.classList.remove('d-none');
                 return;
             }
@@ -504,7 +661,6 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
             modal.hide();
             form.reset();
         });
-
     });
 </script>
 

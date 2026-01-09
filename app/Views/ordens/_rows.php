@@ -18,21 +18,49 @@
             <td><?= esc($o['vendedor'] ?? '—') ?></td>
 
             <?php
-            $valorVenda = (float)$o['valor_venda'];
-            $valorPago  = (float)$o['valor_pago'];
-            $estaPago   = ($valorVenda > 0 && $valorVenda == $valorPago);
+            $valorVenda = (float)($o['valor_venda'] ?? 0);
+            $totalPago  = (float)($o['total_pago'] ?? 0);
+            $saldo      = (float)($o['saldo'] ?? ($valorVenda - $totalPago));
+            $qtdPag     = (int)($o['qtd_pagamentos'] ?? 0);
+
+            $quitado = ($valorVenda > 0 && $saldo <= 0.0001);
+
+            $badgeTotalPago =
+                $quitado ? 'bg-success'
+                : ($totalPago > 0 ? 'bg-warning text-dark' : 'bg-secondary');
+
+            $badgeSaldo =
+                ($saldo > 0.0001) ? 'bg-danger'
+                : 'bg-success';
+
+            $saldoDisplay = ($saldo < 0) ? 0 : $saldo;
             ?>
 
             <td>
-                <span class="badge <?= $estaPago ? 'bg-success' : 'bg-success' ?>">
+                <span class="badge bg-secondary">
                     R$ <?= number_format($valorVenda, 2, ',', '.') ?>
                 </span>
             </td>
+
             <td>
-                <span class="badge <?= $estaPago ? 'bg-success' : 'bg-danger' ?>">
-                    R$ <?= number_format($valorPago, 2, ',', '.') ?>
+                <span class="badge <?= $badgeTotalPago ?>">
+                    R$ <?= number_format($totalPago, 2, ',', '.') ?>
                 </span>
             </td>
+
+            <td>
+                <span class="badge <?= $badgeSaldo ?>">
+                    R$ <?= number_format($saldoDisplay, 2, ',', '.') ?>
+                </span>
+            </td>
+
+            <td>
+                <span class="badge bg-light text-dark">
+                    <?= $qtdPag ?>
+                </span>
+            </td>
+
+
 
             <!-- Data entrega óculos -->
             <td>
@@ -69,6 +97,6 @@
     <?php endforeach;
 else: ?>
     <tr>
-        <td colspan="11" class="text-center text-muted">Nenhum registro.</td>
+        <td colspan="13" class="text-center text-muted">Nenhum registro.</td>
     </tr>
 <?php endif; ?>

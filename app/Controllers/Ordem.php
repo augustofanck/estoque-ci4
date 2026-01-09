@@ -5,9 +5,14 @@ namespace App\Controllers;
 use App\Controllers\BaseController;
 use App\Models\OrdemModel;
 use App\Models\ClienteModel;
+use App\Models\FormaPagamentoModel;
+use App\Models\OrdemPagamentoModel;
 
 class Ordem extends BaseController
 {
+    private OrdemPagamentoModel $pagamentoModel;
+    private FormaPagamentoModel $formaPagamentoModel;
+
     protected $model;
 
     private array $dateFields = [
@@ -71,6 +76,8 @@ class Ordem extends BaseController
     {
         helper(['form', 'url', 'text']);
         $this->model = new OrdemModel();
+        $this->pagamentoModel = new OrdemPagamentoModel();
+        $this->formaPagamentoModel = new FormaPagamentoModel();
     }
 
     public function index()
@@ -92,10 +99,21 @@ class Ordem extends BaseController
         ];
         $col = $map[$field] ?? 'c.nome';
 
+        $pagAgg = '(SELECT ordem_id,
+                SUM(CASE WHEN status = "confirmado" AND deleted_at IS NULL THEN valor ELSE 0 END) AS total_pago,
+                SUM(CASE WHEN deleted_at IS NULL THEN 1 ELSE 0 END) AS qtd_pagamentos
+           FROM ordens_pagamento
+           GROUP BY ordem_id) op';
+
         $builder = $this->model
-            ->select('ordens.*, c.nome AS cliente')
+            ->select('ordens.*, c.nome AS cliente,
+              COALESCE(op.total_pago, 0) AS total_pago,
+              (ordens.valor_venda - COALESCE(op.total_pago, 0)) AS saldo,
+              COALESCE(op.qtd_pagamentos, 0) AS qtd_pagamentos')
             ->join('clientes c', 'c.id = ordens.cliente_id', 'left')
+            ->join($pagAgg, 'op.ordem_id = ordens.id', 'left', false)
             ->orderBy('ordens.id', 'DESC');
+
 
         if ($q !== '') {
             $builder->like($col, $q);
@@ -139,12 +157,25 @@ class Ordem extends BaseController
         $clientes = (new ClienteModel())
             ->select('id, nome')->orderBy('nome', 'ASC')->findAll();
 
+        $formasPagamento = $this->formaPagamentoModel
+            ->select('id, nome')
+            ->orderBy('nome', 'ASC')
+            ->findAll();
+
         return view('ordens/form', [
-            'title'   => 'Nova Ordem',
-            'ordem'   => [],
-            'clientes' => $clientes,
+            'title'          => 'Nova Ordem',
+            'ordem'          => [],
+            'clientes'       => $clientes,
+            'formasPagamento' => $formasPagamento,
+            'pagamentos'     => [],
+            'financeiro'     => [
+                'total_pago'     => 0,
+                'saldo'          => 0,
+                'qtd_pagamentos' => 0,
+            ],
         ]);
     }
+
 
     private function normalizeMoney(string $raw): ?string
     {
@@ -169,8 +200,6 @@ class Ordem extends BaseController
     {
         $moneyFields = [
             'valor_venda',
-            'valor_entrada',
-            'valor_pago',
             'valor_armacao_1',
             'valor_armacao_2',
             'valor_lente_1',
@@ -242,12 +271,42 @@ class Ordem extends BaseController
 
         $clientes = (new ClienteModel())->select('id, nome')->orderBy('nome', 'ASC')->findAll();
 
+        $formasPagamento = $this->formaPagamentoModel
+            ->select('id, nome')
+            ->orderBy('nome', 'ASC')
+            ->findAll();
+
+        $pagamentos = $this->pagamentoModel
+            ->select('ordens_pagamento.*, fp.nome AS forma_nome')
+            ->join('forma_pagamento fp', 'fp.id = ordens_pagamento.forma_pagamento_id', 'left')
+            ->where('ordem_id', $id)
+            ->orderBy('data_pagamento', 'DESC')
+            ->findAll();
+
+        $totalPago = 0.0;
+        foreach ($pagamentos as $p) {
+            if (($p['status'] ?? '') === 'confirmado') {
+                $totalPago += (float)($p['valor'] ?? 0);
+            }
+        }
+
+        $valorVenda = (float)($ordem['valor_venda'] ?? 0);
+        $saldo = $valorVenda - $totalPago;
+
         return view('ordens/form', [
-            'title'     => 'Editar Ordem',
-            'ordem'     => $ordem,
-            'clientes'  => $clientes,
+            'title'           => 'Editar Ordem',
+            'ordem'           => $ordem,
+            'clientes'        => $clientes,
+            'formasPagamento' => $formasPagamento,
+            'pagamentos'      => $pagamentos,
+            'financeiro'      => [
+                'total_pago'     => $totalPago,
+                'saldo'          => $saldo,
+                'qtd_pagamentos' => count($pagamentos),
+            ],
         ]);
     }
+
 
     public function update($id)
     {
@@ -296,5 +355,59 @@ class Ordem extends BaseController
     {
         $this->model->delete($id);
         return redirect()->to(site_url('ordens'))->with('msg', 'Registro excluído.');
+    }
+
+    public function addPagamento($ordemId)
+    {
+        $ordemId = (int) $ordemId;
+        $ordem = $this->model->find($ordemId);
+
+        if (!$ordem) {
+            return redirect()->to(site_url('ordens'))->with('errors', ['Ordem não encontrada.']);
+        }
+
+        $valor = $this->normalizeMoney((string) $this->request->getPost('valor'));
+        $formaId = $this->request->getPost('forma_pagamento_id');
+        $dataRaw = (string) $this->request->getPost('data_pagamento');
+
+        if ($valor === null || (float)$valor <= 0) {
+            return redirect()->back()->withInput()->with('errors', ['Informe um valor de pagamento válido.']);
+        }
+
+        $formaId = ($formaId === '' || $formaId === null) ? null : (int)$formaId;
+
+        $dataDb = $this->toDbDate($dataRaw);
+        $dataPagamento = $dataDb ? ($dataDb . ' 00:00:00') : date('Y-m-d H:i:s');
+
+        if (!$this->pagamentoModel->insert([
+            'ordem_id'           => $ordemId,
+            'forma_pagamento_id' => $formaId,
+            'valor'              => $valor,
+            'data_pagamento'     => $dataPagamento,
+            'status'             => 'confirmado',
+        ])) {
+            return redirect()->back()->withInput()->with('errors', $this->pagamentoModel->errors());
+        }
+
+        return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
+            ->with('success', 'Pagamento registrado com sucesso!');
+    }
+
+    public function deletePagamento($ordemId, $pagamentoId)
+    {
+        $ordemId = (int)$ordemId;
+        $pagamentoId = (int)$pagamentoId;
+
+        $pag = $this->pagamentoModel->find($pagamentoId);
+
+        if (!$pag || (int)($pag['ordem_id'] ?? 0) !== $ordemId) {
+            return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
+                ->with('errors', ['Pagamento não encontrado.']);
+        }
+
+        $this->pagamentoModel->delete($pagamentoId);
+
+        return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
+            ->with('success', 'Pagamento removido.');
     }
 }

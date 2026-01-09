@@ -28,6 +28,10 @@ $routes->group('', ['filter' => 'webauth'], static function ($routes) {
         $r->get('(:num)/edit',    'Ordem::edit/$1',             ['filter' => 'role:min:1']);
         $r->post('(:num)/update', 'Ordem::update/$1',           ['filter' => 'role:min:1']);
         $r->get('(:num)/delete',  'Ordem::delete/$1',           ['filter' => 'role:min:2']);
+
+        // Pagamentos: vendedor 0+, editar 1+, deletar 2
+        $r->post('/(:num)/pagamentos/add',           'Ordem::addPagamento/$1',          ['filter' => 'role:min:1']);
+        $r->post('/(:num)/pagamentos/(:num)/delete', 'Ordem::deletePagamento/$1/$2',    ['filter' => 'role:min:1']);
     });
 
     /**

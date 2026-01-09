@@ -56,9 +56,11 @@
                     <th>Data compra</th>
                     <th>O.S.</th>
                     <th>Cliente</th>
-                    <th>Vendedor</th> <!-- nova coluna -->
+                    <th>Vendedor</th>
                     <th>Valor venda</th>
-                    <th>Pago</th>
+                    <th>Total pago</th>
+                    <th>Saldo</th>
+                    <th># pag.</th>
                     <th>Entrega óculos</th>
                     <th>Nota?</th>
                     <th>Laboratório?</th>
