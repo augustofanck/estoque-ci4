@@ -368,6 +368,7 @@ class Ordem extends BaseController
 
         $valor = $this->normalizeMoney((string) $this->request->getPost('valor'));
         $formaId = $this->request->getPost('forma_pagamento_id');
+        $obs = $this->request->getPost('obs');
         $dataRaw = (string) $this->request->getPost('data_pagamento');
 
         if ($valor === null || (float)$valor <= 0) {
@@ -379,11 +380,35 @@ class Ordem extends BaseController
         $dataDb = $this->toDbDate($dataRaw);
         $dataPagamento = $dataDb ? ($dataDb . ' 00:00:00') : date('Y-m-d H:i:s');
 
+        $valorVenda = (float)($ordem['valor_venda'] ?? 0);
+        $eps = 0.0001;
+
+        $row = $this->pagamentoModel
+            ->select('COALESCE(SUM(valor),0) AS total', false)
+            ->where('ordem_id', $ordemId)
+            ->where('status', 'confirmado')
+            ->first();
+
+        $totalAtual = (float)($row['total'] ?? 0);
+        $saldoAtual = $valorVenda - $totalAtual;
+
+        if ($valorVenda > 0 && $saldoAtual <= $eps) {
+            return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
+                ->with('errors', ['Ordem já quitada. Não é possível registrar novo pagamento.']);
+        }
+
+        if ($valorVenda > 0 && (float)$valor > ($saldoAtual + $eps)) {
+            return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
+                ->with('errors', ['O valor do pagamento excede o saldo atual da ordem.']);
+        }
+
+
         if (!$this->pagamentoModel->insert([
             'ordem_id'           => $ordemId,
             'forma_pagamento_id' => $formaId,
             'valor'              => $valor,
             'data_pagamento'     => $dataPagamento,
+            'obs'                => $obs,
             'status'             => 'confirmado',
         ])) {
             return redirect()->back()->withInput()->with('errors', $this->pagamentoModel->errors());

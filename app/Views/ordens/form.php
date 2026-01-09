@@ -160,7 +160,6 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                                 <th>Valor</th>
                                 <th>Forma</th>
                                 <th>Status</th>
-                                <th>Tipo</th>
                                 <th>Obs.</th>
                                 <th class="text-end">Ações</th>
                             </tr>
@@ -191,7 +190,6 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                                         <td>R$ <?= number_format((float)($p['valor'] ?? 0), 2, ',', '.') ?></td>
                                         <td><?= esc($p['forma_nome'] ?? '—') ?></td>
                                         <td><span class="badge <?= $stClass ?>"><?= esc($st) ?></span></td>
-                                        <td><span class="badge bg-light text-dark"><?= esc($p['tipo'] ?? '') ?></span></td>
                                         <td><?= esc($p['obs'] ?? '') ?></td>
                                         <td class="text-end">
                                             <!-- PATCH: não usar submit aqui para não acionar o submit AJAX do formOrdem -->
@@ -401,6 +399,28 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
                             Se você alterou dados da ordem, salve antes de registrar o pagamento.
                         </div>
 
+                        <?php
+                        // saldoDisplay já existe no seu form (você calcula antes)
+                        $saldoJs = number_format($saldoDisplay, 2, '.', ''); // número JS seguro
+                        ?>
+
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div>
+                                <span class="text-muted">Saldo atual:</span>
+                                <span class="badge <?= ($saldoDisplay > 0.0001) ? 'bg-danger' : 'bg-success' ?> fs-6 ms-1">
+                                    R$ <?= number_format($saldoDisplay, 2, ',', '.') ?>
+                                </span>
+                            </div>
+                            <small class="text-muted">
+                                Máximo permitido: <strong>R$ <?= number_format($saldoDisplay, 2, ',', '.') ?></strong>
+                            </small>
+                        </div>
+
+                        <div id="payErrors" class="alert alert-danger d-none"></div>
+
+                        <!-- saldo numérico para o JS -->
+                        <input type="hidden" id="saldoAtualJs" value="<?= esc($saldoJs) ?>">
+
                         <div class="row g-3">
                             <div class="col-md-4">
                                 <label class="form-label">Valor*</label>
@@ -526,6 +546,78 @@ $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('o
         });
     });
 </script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const modalEl = document.getElementById('modalPagamento');
+        if (!modalEl) return;
+
+        const payForm = modalEl.querySelector('form');
+        const payErrors = document.getElementById('payErrors');
+        const saldoInput = document.getElementById('saldoAtualJs');
+
+        function parseBRMoney(str) {
+            // "1.234,56" -> 1234.56
+            if (!str) return 0;
+            return parseFloat(
+                String(str)
+                .replace(/\s/g, '')
+                .replace(/\./g, '')
+                .replace(',', '.')
+                .replace(/[^0-9.]/g, '')
+            ) || 0;
+        }
+
+        function showPayError(msg) {
+            if (!payErrors) return;
+            payErrors.innerHTML = msg;
+            payErrors.classList.remove('d-none');
+        }
+
+        function clearPayError() {
+            if (!payErrors) return;
+            payErrors.innerHTML = '';
+            payErrors.classList.add('d-none');
+        }
+
+        // Limpa erros ao abrir modal
+        modalEl.addEventListener('shown.bs.modal', () => {
+            clearPayError();
+            const valorField = payForm?.querySelector('input[name="valor"]');
+            if (valorField) valorField.focus();
+        });
+
+        payForm?.addEventListener('submit', function(e) {
+            clearPayError();
+
+            const saldo = parseFloat(saldoInput?.value || '0') || 0;
+            const valorField = payForm.querySelector('input[name="valor"]');
+            const valor = parseBRMoney(valorField?.value);
+
+            const eps = 0.0001;
+
+            if (saldo <= eps) {
+                e.preventDefault();
+                showPayError('Esta ordem já está quitada. Não é possível registrar novo pagamento.');
+                return;
+            }
+
+            if (valor <= eps) {
+                e.preventDefault();
+                showPayError('Informe um valor de pagamento válido.');
+                return;
+            }
+
+            if (valor > (saldo + eps)) {
+                e.preventDefault();
+                showPayError(`O valor informado (R$ ${valor.toFixed(2).replace('.', ',')}) excede o saldo atual. 
+                          Lance no máximo o saldo (R$ ${saldo.toFixed(2).replace('.', ',')}).`);
+                return;
+            }
+        });
+    });
+</script>
+
 
 <!-- Modal Novo Cliente -->
 <div class="modal fade" id="modalCliente" tabindex="-1" aria-hidden="true">
