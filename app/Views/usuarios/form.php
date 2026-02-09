@@ -8,16 +8,6 @@ $action = $isEdit ? site_url('usuarios/' . $user['id'] . '/update') : site_url('
 
 <h1 class="h4 mb-3"><?= $isEdit ? 'Editar Usuário' : 'Novo Usuário' ?></h1>
 
-<?php if ($errors = session()->getFlashdata('errors')): ?>
-    <div class="alert alert-danger">
-        <ul class="mb-0">
-            <?php foreach ($errors as $e): ?>
-                <li><?= esc($e) ?></li>
-            <?php endforeach; ?>
-        </ul>
-    </div>
-<?php endif; ?>
-
 <form method="post" action="<?= $action ?>">
     <?= csrf_field() ?>
 

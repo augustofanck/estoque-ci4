@@ -51,16 +51,31 @@ class Usuarios extends BaseController
     {
         if ($r = $this->ensureAdmin()) return $r;
 
-        $data = $this->request->getPost();
-        $data['is_active'] = isset($data['is_active']) ? 1 : 0;
+        $post = $this->request->getPost();
+        $post['is_active'] = isset($post['is_active']) ? 1 : 0;
 
-        $this->model->setValidationRules($this->model->getRules('create'));
-        if (!$this->model->save($data)) {
-            return redirect()->back()->withInput()->with('errors', $this->model->errors());
+        $rules = $this->model->getRules('create');
+        $validation = \Config\Services::validation();
+        $validation->setRules($rules);
+
+        if (!$validation->run($post)) {
+            return redirect()->back()->withInput()->with('errors', $validation->getErrors());
         }
+
+        $data = [
+            'name'         => $post['name'],
+            'email'        => $post['email'],
+            'role'         => (int) $post['role'],
+            'is_active'    => (int) $post['is_active'],
+            'password_hash' => password_hash((string)$post['password'], PASSWORD_DEFAULT),
+        ];
+
+        $this->model->skipValidation(true)->insert($data);
 
         return redirect()->to(site_url('usuarios'))->with('msg', 'Usuário criado com sucesso.');
     }
+
+
 
     public function edit($id)
     {
@@ -81,17 +96,37 @@ class Usuarios extends BaseController
     {
         if ($r = $this->ensureAdmin()) return $r;
 
-        $data = $this->request->getPost();
-        $data['id']        = (int) $id;
-        $data['is_active'] = isset($data['is_active']) ? 1 : 0;
+        $post = $this->request->getPost();
+        $post['id']        = (int) $id;
+        $post['is_active'] = isset($post['is_active']) ? 1 : 0;
 
-        $this->model->setValidationRules($this->model->getRules('update'));
-        if (!$this->model->save($data)) {
-            return redirect()->back()->withInput()->with('errors', $this->model->errors());
+        $rules = $this->model->getRules('update');
+        $validation = \Config\Services::validation();
+        $validation->setRules($rules);
+
+        if (!$validation->run($post)) {
+            return redirect()->back()->withInput()->with('errors', $validation->getErrors());
         }
+
+        $data = [
+            'id'        => $post['id'],
+            'name'      => $post['name'],
+            'email'     => $post['email'],
+            'role'      => (int) $post['role'],
+            'is_active' => (int) $post['is_active'],
+        ];
+
+        $plain = trim((string)($post['password'] ?? ''));
+        if ($plain !== '') {
+            $data['password_hash'] = password_hash($plain, PASSWORD_DEFAULT);
+        }
+
+        $this->model->skipValidation(true)->save($data);
 
         return redirect()->to(site_url('usuarios'))->with('msg', 'Usuário atualizado com sucesso.');
     }
+
+
 
     public function delete($id)
     {

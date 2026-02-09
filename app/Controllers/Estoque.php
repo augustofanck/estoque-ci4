@@ -3,309 +3,334 @@
 namespace App\Controllers;
 
 use App\Models\EstoqueItemModel;
-use App\Models\EstoqueTipoModel;
 use App\Models\EstoqueMovimentoModel;
+use App\Models\EstoqueTipoModel;
 
 class Estoque extends BaseController
 {
-    /**
-     * Estoque: somente GERENTE(1) ou ADMIN(2)
-     */
-    private function guard()
+    private EstoqueItemModel $itemModel;
+    private EstoqueMovimentoModel $movModel;
+    private EstoqueTipoModel $tipoModel;
+
+    public function __construct()
     {
-        if (!has_min_role(1)) {
-            return redirect()->to('/')->with('error', 'Acesso não permitido!');
+        $this->itemModel = new EstoqueItemModel();
+        $this->movModel  = new EstoqueMovimentoModel();
+        $this->tipoModel = new EstoqueTipoModel();
+        helper(['form', 'url', 'text']);
+    }
+
+    /**
+     * Normaliza moeda pt-BR / inputs variados para decimal com ponto.
+     * Exemplos:
+     *  "1.234,56" -> "1234.56"
+     *  "1234,56"  -> "1234.56"
+     *  "1234.56"  -> "1234.56"
+     *  ""         -> "0.00"
+     */
+    private function normalizeMoney(?string $raw): string
+    {
+        $raw = trim((string)$raw);
+        if ($raw === '') return '0.00';
+
+        // mantém só números e separadores
+        $raw = preg_replace('/[^0-9.,]/', '', $raw);
+
+        $lastComma = strrpos($raw, ',');
+        $lastDot   = strrpos($raw, '.');
+
+        // Se a última vírgula vem depois do último ponto, assume vírgula decimal
+        if ($lastComma !== false && ($lastDot === false || $lastComma > $lastDot)) {
+            $raw = str_replace('.', '', $raw);   // remove separador de milhar
+            $raw = str_replace(',', '.', $raw);  // troca decimal
+        } else {
+            // caso padrão: ponto decimal, remove vírgulas (milhar)
+            $raw = str_replace(',', '', $raw);
         }
-        return null;
+
+        if (!is_numeric($raw)) return '0.00';
+
+        $v = (float)$raw;
+        if ($v < 0) $v = 0;
+
+        return number_format($v, 2, '.', '');
     }
 
     public function index()
     {
-        if ($r = $this->guard()) return $r;
+        $f = $this->request->getGet();
 
-        $itemModel = new EstoqueItemModel();
-        $tipoModel = new EstoqueTipoModel();
+        $tipo     = $f['tipo_id'] ?? null;
+        $categoria = $f['categoria'] ?? null;
+        $q        = trim((string)($f['q'] ?? ''));
 
-        $data = [
-            'tipos' => $tipoModel->where('ativo', 1)->orderBy('nome', 'asc')->findAll(),
-            'itens' => $itemModel->select('estoque_itens.*, estoque_tipos.nome as tipo_nome')
-                ->join('estoque_tipos', 'estoque_tipos.id = estoque_itens.tipo_id', 'left')
-                ->orderBy('estoque_itens.id', 'desc')
-                ->findAll(),
-        ];
+        $builder = $this->itemModel
+            ->select('estoque_itens.*, estoque_tipos.nome as tipo_nome')
+            ->join('estoque_tipos', 'estoque_tipos.id = estoque_itens.tipo_id', 'left')
+            ->where('estoque_itens.deleted_at IS NULL', null, false)
+            ->orderBy('estoque_itens.id', 'DESC');
 
-        return view('estoque/index', $data);
+        if ($tipo) $builder->where('estoque_itens.tipo_id', (int)$tipo);
+        if ($categoria) $builder->where('estoque_itens.categoria', (string)$categoria);
+
+        if ($q !== '') {
+            $builder->groupStart()
+                ->like('estoque_itens.codigo', $q)
+                ->orLike('estoque_itens.titulo', $q)
+                ->orLike('estoque_itens.categoria', $q)
+                ->groupEnd();
+        }
+
+        $itens = $builder->findAll();
+
+        $tipos = $this->tipoModel
+            ->where('deleted_at IS NULL', null, false)
+            ->orderBy('nome', 'ASC')
+            ->findAll();
+
+        return view('estoque/index', [
+            'title'     => 'Estoque',
+            'itens'     => $itens,
+            'tipos'     => $tipos,
+            'filtros'   => $f,
+        ]);
     }
 
     public function create()
     {
-        if ($r = $this->guard()) return $r;
+        $tipos = $this->tipoModel
+            ->where('deleted_at IS NULL', null, false)
+            ->orderBy('nome', 'ASC')
+            ->findAll();
 
-        $tipoModel = new EstoqueTipoModel();
         return view('estoque/form', [
-            'tipos' => $tipoModel->where('ativo', 1)->orderBy('nome', 'asc')->findAll(),
-            'item'  => null,
+            'title' => 'Novo Item',
+            'item'  => [
+                'ativo'      => 1,
+                'qtd_atual'  => 0,
+                'qtd_minima' => 0,
+                'preco_venda' => 0, // NOVO default para UI
+            ],
+            'tipos' => $tipos,
         ]);
     }
 
     public function store()
     {
-        if ($r = $this->guard()) return $r;
+        $dados = $this->request->getPost([
+            'codigo',
+            'tipo_id',
+            'titulo',
+            'categoria',
+            'atributos',
+            'qtd_minima',
+            'preco_venda', // NOVO
+        ]);
 
-        $itemModel = new EstoqueItemModel();
-        $dados = $this->request->getPost();
+        // Normaliza preço de venda
+        if (array_key_exists('preco_venda', $dados)) {
+            $dados['preco_venda'] = $this->normalizeMoney($dados['preco_venda']);
+        }
 
-        // atributos pode vir como array -> salva em JSON
+        // Atributos como JSON
         if (isset($dados['atributos']) && is_array($dados['atributos'])) {
             $dados['atributos'] = json_encode($dados['atributos'], JSON_UNESCAPED_UNICODE);
         }
 
-        if (!$itemModel->insert($dados)) {
-            return redirect()->back()->withInput()->with('errors', $itemModel->errors());
+        $dados['qtd_atual'] = 0;
+        $dados['ativo'] = 1;
+
+        if (!$this->itemModel->insert($dados)) {
+            return redirect()->back()
+                ->withInput()
+                ->with('errors', $this->itemModel->errors());
         }
 
-        return redirect()->to('/estoque')->with('success', 'Item criado com sucesso!');
+        return redirect()->to(site_url('estoque'))->with('success', 'Item criado com sucesso!');
     }
 
     public function edit($id)
     {
-        if ($r = $this->guard()) return $r;
+        $item = $this->itemModel->find($id);
 
-        $itemModel = new EstoqueItemModel();
-        $tipoModel = new EstoqueTipoModel();
+        if (!$item) {
+            return redirect()->to(site_url('estoque'))->with('error', 'Item não encontrado.');
+        }
 
-        $item = $itemModel->find($id);
-        if (!$item) return redirect()->to('/estoque')->with('error', 'Item não encontrado.');
+        $tipos = $this->tipoModel
+            ->where('deleted_at IS NULL', null, false)
+            ->orderBy('nome', 'ASC')
+            ->findAll();
 
         return view('estoque/form', [
-            'tipos' => $tipoModel->where('ativo', 1)->orderBy('nome', 'asc')->findAll(),
+            'title' => 'Editar Item',
             'item'  => $item,
+            'tipos' => $tipos,
         ]);
     }
 
     public function update($id)
     {
-        if ($r = $this->guard()) return $r;
+        $dados = $this->request->getPost([
+            'codigo',
+            'tipo_id',
+            'titulo',
+            'categoria',
+            'atributos',
+            'qtd_minima',
+            'ativo',
+            'preco_venda', // NOVO
+        ]);
 
-        $itemModel = new EstoqueItemModel();
-        $dados = $this->request->getPost();
+        // Normaliza preço de venda
+        if (array_key_exists('preco_venda', $dados)) {
+            $dados['preco_venda'] = $this->normalizeMoney($dados['preco_venda']);
+        }
 
         if (isset($dados['atributos']) && is_array($dados['atributos'])) {
             $dados['atributos'] = json_encode($dados['atributos'], JSON_UNESCAPED_UNICODE);
         }
 
-        if (!$itemModel->update($id, $dados)) {
-            return redirect()->back()->withInput()->with('errors', $itemModel->errors());
+        if (!$this->itemModel->update($id, $dados)) {
+            return redirect()->back()
+                ->withInput()
+                ->with('errors', $this->itemModel->errors());
         }
 
-        return redirect()->to('/estoque')->with('success', 'Item atualizado!');
+        return redirect()->to(site_url('estoque'))->with('success', 'Item atualizado com sucesso!');
     }
 
     public function delete($id)
     {
-        if ($r = $this->guard()) return $r;
-
-        // Opcional: só admin pode deletar
-        // if (!is_admin()) return redirect()->to('/estoque')->with('error', 'Acesso não permitido!');
-
-        $itemModel = new EstoqueItemModel();
-        $itemModel->delete($id);
-
-        return redirect()->to('/estoque')->with('success', 'Item removido!');
+        $this->itemModel->delete($id);
+        return redirect()->to(site_url('estoque'))->with('success', 'Item removido.');
     }
 
-    public function movimentar($id)
+    public function movimentos($id)
     {
-        if ($r = $this->guard()) return $r;
+        $item = $this->itemModel->find($id);
 
-        $itemModel = new EstoqueItemModel();
-        $movModel  = new EstoqueMovimentoModel();
-
-        $item = $itemModel->find($id);
-        if (!$item) return redirect()->to('/estoque')->with('error', 'Item não encontrado.');
-
-        $tipo   = (string) $this->request->getPost('tipo'); // E, S, A
-        $qtd    = (int) $this->request->getPost('quantidade');
-        $motivo = $this->request->getPost('motivo');
-        $ref    = $this->request->getPost('referencia');
-
-        // validação rápida (evita movimentação vazia/errada)
-        if (!in_array($tipo, ['E', 'S', 'A'], true)) {
-            return redirect()->back()->with('error', 'Tipo de movimentação inválido.');
-        }
-        if ($qtd <= 0) {
-            return redirect()->back()->with('error', 'Quantidade deve ser maior que zero.');
+        if (!$item) {
+            return redirect()->to(site_url('estoque'))->with('error', 'Item não encontrado.');
         }
 
-        $db = \Config\Database::connect();
-        $db->transBegin();
+        $movimentos = $this->movModel
+            ->select('estoque_movimentos.*, users.name as usuario_nome')
+            ->join('users', 'users.id = estoque_movimentos.user_id', 'left')
+            ->where('estoque_movimentos.item_id', $id)
+            ->orderBy('estoque_movimentos.id', 'DESC')
+            ->findAll();
 
-        // calcula novo saldo
-        $novoSaldo = (int) $item['qtd_atual'];
-        if ($tipo === 'E') $novoSaldo += $qtd;
-        if ($tipo === 'S') $novoSaldo -= $qtd;
-        if ($tipo === 'A') $novoSaldo  = $qtd;
+        return view('estoque/movimentos', [
+            'title'      => 'Movimentos do Item',
+            'item'       => $item,
+            'movimentos' => $movimentos,
+        ]);
+    }
 
-        if ($novoSaldo < 0) {
-            $db->transRollback();
-            return redirect()->back()->with('error', 'Saldo não pode ficar negativo.');
+    public function ajustar($id)
+    {
+        $item = $this->itemModel->find($id);
+        if (!$item) return redirect()->to(site_url('estoque'))->with('error', 'Item não encontrado.');
+
+        $qtd = (int)$this->request->getPost('qtd');
+        $obs = trim((string)$this->request->getPost('obs'));
+
+        $delta = $qtd - (int)$item['qtd_atual'];
+
+        if ($delta === 0) {
+            return redirect()->back()->with('error', 'Nenhuma alteração na quantidade.');
         }
 
-        $ok1 = $itemModel->update($id, ['qtd_atual' => $novoSaldo]);
-
-        $ok2 = $movModel->insert([
-            'item_id'    => $id,
-            'tipo'       => $tipo,
-            'quantidade' => $qtd,
-            'motivo'     => $motivo,
-            'referencia' => $ref,
-            'user_id'    => session('user_id') ?? null,
-            'created_at' => date('Y-m-d H:i:s'),
+        $this->movModel->insert([
+            'item_id'     => $id,
+            'tipo'        => 'A',
+            'qtd'         => $delta,
+            'obs'         => $obs,
+            'user_id'     => null,
+            'created_at'  => date('Y-m-d H:i:s'),
         ]);
 
-        if (!$ok1 || !$ok2 || $db->transStatus() === false) {
-            $db->transRollback();
-            return redirect()->back()->with('error', 'Erro ao registrar movimentação.');
-        }
+        $this->itemModel->update($id, ['qtd_atual' => $qtd]);
 
-        $db->transCommit();
-
-        return redirect()->to('/estoque')->with('success', 'Movimentação registrada!');
+        return redirect()->to(site_url("estoque/{$id}/movimentos"))->with('success', 'Quantidade ajustada!');
     }
 
-    public function relatorios()
+    public function autocomplete()
     {
-        if ($r = $this->guard()) return $r;
+        $term = trim((string)($this->request->getGet('q') ?? $this->request->getGet('term') ?? ''));
+        $page = (int)($this->request->getGet('page') ?? 1);
+        if ($page < 1) $page = 1;
 
-        $db = \Config\Database::connect();
+        $perPage = 10;
+        $offset  = ($page - 1) * $perPage;
 
-        // filtros (GET)
-        $ini = (string) ($this->request->getGet('ini') ?? '');
-        $fim = (string) ($this->request->getGet('fim') ?? '');
-        $tipoId = $this->request->getGet('tipo_id');    // int
-        $itemId = $this->request->getGet('item_id');    // int
-        $codigo = (string) ($this->request->getGet('codigo') ?? '');
-        $movTipo = (string) ($this->request->getGet('mov_tipo') ?? ''); // E,S,A
+        // Busca 1 a mais para detectar se existe próxima página (pagination.more)
+        $limitPlusOne = $perPage + 1;
 
-        // defaults: últimos 30 dias
-        $today = date('Y-m-d');
-        if ($fim === '') $fim = $today;
-        if ($ini === '') $ini = date('Y-m-d', strtotime($fim . ' -30 days'));
-
-        // saneamento simples de datas (YYYY-MM-DD)
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ini)) $ini = date('Y-m-d', strtotime('-30 days'));
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fim)) $fim = $today;
-
-        $iniDT = $ini . ' 00:00:00';
-        $fimDT = $fim . ' 23:59:59';
-
-        // lista de tipos (para filtro)
-        $tipos = $db->table('estoque_tipos')
-            ->select('id, nome')
-            ->where('ativo', 1)
-            ->orderBy('nome', 'asc')
-            ->get()->getResultArray();
-
-        // base: movimentos no período + joins
-        $movQ = $db->table('estoque_movimentos m')
+        $builder = $this->itemModel
             ->select('
-            m.id, m.tipo, m.quantidade, m.motivo, m.referencia, m.user_id, m.created_at,
-            i.id as item_id, i.codigo, i.titulo, i.categoria,
-            t.id as tipo_id, t.nome as tipo_nome
+            estoque_itens.id,
+            estoque_itens.codigo,
+            estoque_itens.titulo,
+            estoque_itens.categoria,
+            estoque_itens.qtd_atual,
+            estoque_itens.preco_venda,
+            estoque_tipos.nome AS tipo_nome
         ')
-            ->join('estoque_itens i', 'i.id = m.item_id', 'inner')
-            ->join('estoque_tipos t', 't.id = i.tipo_id', 'left')
-            ->where('m.created_at >=', $iniDT)
-            ->where('m.created_at <=', $fimDT)
-            ->where('i.deleted_at IS NULL', null, false);
+            ->join('estoque_tipos', 'estoque_tipos.id = estoque_itens.tipo_id', 'left')
+            ->where('estoque_itens.ativo', 1)
+            ->where('estoque_itens.deleted_at IS NULL', null, false);
 
-        // filtros opcionais
-        if ($tipoId !== null && $tipoId !== '' && ctype_digit((string)$tipoId)) {
-            $movQ->where('i.tipo_id', (int)$tipoId);
-        }
-        if ($itemId !== null && $itemId !== '' && ctype_digit((string)$itemId)) {
-            $movQ->where('i.id', (int)$itemId);
-        }
-        if ($codigo !== '') {
-            $movQ->like('i.codigo', $codigo);
-        }
-        if ($movTipo !== '' && in_array($movTipo, ['E', 'S', 'A'], true)) {
-            $movQ->where('m.tipo', $movTipo);
+        if ($term !== '') {
+            $builder->groupStart()
+                ->like('estoque_itens.codigo', $term)
+                ->orLike('estoque_itens.titulo', $term)
+                ->orLike('estoque_itens.categoria', $term)
+                ->orLike('estoque_tipos.nome', $term)
+                ->groupEnd();
         }
 
-        // movimentos (lista)
-        $movimentos = $movQ
-            ->orderBy('m.created_at', 'desc')
-            ->limit(300)
-            ->get()->getResultArray();
+        $rows = $builder
+            ->orderBy('estoque_itens.codigo', 'ASC')
+            ->limit($limitPlusOne, $offset)
+            ->findAll();
 
-        // resumo geral (entradas/saídas/ajustes)
-        $resumo = $db->table('estoque_movimentos m')
-            ->select("
-            SUM(CASE WHEN m.tipo='E' THEN m.quantidade ELSE 0 END) AS total_entradas,
-            SUM(CASE WHEN m.tipo='S' THEN m.quantidade ELSE 0 END) AS total_saidas,
-            SUM(CASE WHEN m.tipo='A' THEN 1 ELSE 0 END) AS total_ajustes,
-            COUNT(*) AS total_movs
-        ", false)
-            ->join('estoque_itens i', 'i.id = m.item_id', 'inner')
-            ->where('m.created_at >=', $iniDT)
-            ->where('m.created_at <=', $fimDT)
-            ->where('i.deleted_at IS NULL', null, false);
-
-        if ($tipoId !== null && $tipoId !== '' && ctype_digit((string)$tipoId)) {
-            $resumo->where('i.tipo_id', (int)$tipoId);
-        }
-        if ($itemId !== null && $itemId !== '' && ctype_digit((string)$itemId)) {
-            $resumo->where('i.id', (int)$itemId);
-        }
-        if ($codigo !== '') {
-            $resumo->like('i.codigo', $codigo);
-        }
-        if ($movTipo !== '' && in_array($movTipo, ['E', 'S', 'A'], true)) {
-            $resumo->where('m.tipo', $movTipo);
+        $more = count($rows) > $perPage;
+        if ($more) {
+            array_pop($rows); // remove o “extra”
         }
 
-        $resumo = $resumo->get()->getRowArray() ?? [
-            'total_entradas' => 0,
-            'total_saidas' => 0,
-            'total_ajustes' => 0,
-            'total_movs' => 0,
-        ];
+        $results = [];
+        foreach ($rows as $r) {
+            $codigo = (string)($r['codigo'] ?? '');
+            $titulo = (string)($r['titulo'] ?? '');
+            $text   = trim($codigo . ' — ' . ($titulo !== '' ? $titulo : 'Sem título'));
 
-        // ranking por item (o que mais saiu/entrou no período)
-        $rankingItens = $db->table('estoque_movimentos m')
-            ->select("
-            i.id as item_id, i.codigo, i.titulo,
-            SUM(CASE WHEN m.tipo='E' THEN m.quantidade ELSE 0 END) AS entradas,
-            SUM(CASE WHEN m.tipo='S' THEN m.quantidade ELSE 0 END) AS saidas
-        ", false)
-            ->join('estoque_itens i', 'i.id = m.item_id', 'inner')
-            ->where('m.created_at >=', $iniDT)
-            ->where('m.created_at <=', $fimDT)
-            ->where('i.deleted_at IS NULL', null, false)
-            ->groupBy('i.id')
-            ->orderBy('saidas', 'desc')
-            ->limit(10);
+            $precoVenda = null;
+            if (isset($r['preco_venda']) && $r['preco_venda'] !== '' && $r['preco_venda'] !== null) {
+                // mantém em string "0.00" pro front decidir como exibir
+                $precoVenda = number_format((float)$r['preco_venda'], 2, '.', '');
+            }
 
-        if ($tipoId !== null && $tipoId !== '' && ctype_digit((string)$tipoId)) {
-            $rankingItens->where('i.tipo_id', (int)$tipoId);
+            $results[] = [
+                'id'             => (int)$r['id'],
+                'text'           => $text,
+                'codigo'         => $codigo,
+                'titulo'         => $titulo,
+                'categoria'      => (string)($r['categoria'] ?? ''),
+                'tipo_nome'      => (string)($r['tipo_nome'] ?? ''),
+                'qtd_atual'      => isset($r['qtd_atual']) ? (int)$r['qtd_atual'] : 0,
+
+                // compatibilidade com o que você já usa no select2 (data-preco / preco_sugerido)
+                'preco_sugerido' => $precoVenda,
+                'preco_venda'    => $precoVenda,
+            ];
         }
 
-        $rankingItens = $rankingItens->get()->getResultArray();
-
-        return view('estoque/relatorios', [
-            'filtros' => [
-                'ini' => $ini,
-                'fim' => $fim,
-                'tipo_id' => $tipoId,
-                'item_id' => $itemId,
-                'codigo' => $codigo,
-                'mov_tipo' => $movTipo,
-            ],
-            'tipos' => $tipos,
-            'resumo' => $resumo,
-            'movimentos' => $movimentos,
-            'rankingItens' => $rankingItens,
+        return $this->response->setJSON([
+            'results'    => $results,
+            'pagination' => ['more' => $more],
         ]);
     }
 }

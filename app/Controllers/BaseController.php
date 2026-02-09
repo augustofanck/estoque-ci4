@@ -63,4 +63,22 @@ abstract class BaseController extends Controller
         }
         return null;
     }
+
+    protected function toDbDate(?string $v): ?string
+    {
+        $v = trim((string)$v);
+        if ($v === '') return null;
+
+        if (preg_match('#^\d{2}/\d{2}/\d{4}$#', $v)) {
+            $d = \DateTime::createFromFormat('d/m/Y', $v);
+            return $d && $d->format('d/m/Y') === $v ? $d->format('Y-m-d') : null;
+        }
+
+        if (preg_match('#^\d{4}-\d{2}-\d{2}$#', $v)) {
+            $d = \DateTime::createFromFormat('Y-m-d', $v);
+            return $d ? $d->format('Y-m-d') : null;
+        }
+
+        return null;
+    }
 }

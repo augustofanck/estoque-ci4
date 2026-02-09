@@ -104,7 +104,7 @@ if ($isEdit && !empty($item['atributos'])) {
                     <div class="form-text">Campo base para futuros itens (lentes, acessórios, etc.).</div>
                 </div> -->
 
-                <div class="col-md-8">
+                <div class="col-md-6">
                     <label class="form-label">Título</label>
                     <input
                         type="text"
@@ -135,6 +135,21 @@ if ($isEdit && !empty($item['atributos'])) {
                         value="<?= esc(old('qtd_minima', $item['qtd_minima'] ?? 0)) ?>"
                         step="1">
                 </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">Preço</label>
+                    <div class="input-group">
+                        <span class="input-group-text">R$</span>
+                        <input
+                            type="text"
+                            name="preco_venda"
+                            class="form-control"
+                            inputmode="decimal"
+                            placeholder="0,00"
+                            value="<?= esc(old('preco_venda', isset($item['preco_venda']) ? number_format((float)$item['preco_venda'], 2, ',', '.') : '0,00')) ?>">
+                    </div>
+                </div>
+
 
                 <div class="col-12">
                     <div class="form-check form-switch">

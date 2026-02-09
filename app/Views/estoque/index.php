@@ -2,6 +2,11 @@
 $success = session()->getFlashdata('success');
 $error   = session()->getFlashdata('error');
 $errors  = session()->getFlashdata('errors') ?? [];
+
+function brl($v): string
+{
+    return 'R$ ' . number_format((float)$v, 2, ',', '.');
+}
 ?>
 
 <?= $this->extend('layouts/main') ?>
@@ -63,7 +68,7 @@ $errors  = session()->getFlashdata('errors') ?? [];
                                 <th>Tipo</th>
                                 <th>Título</th>
                                 <th class="text-center" style="width:110px;">Qtd</th>
-                                <th class="text-center" style="width:120px;">Mínimo</th>
+                                <th class="text-center" style="width:140px;">Preço venda</th>
                                 <th class="text-center" style="width:120px;">Status</th>
                                 <th class="text-end" style="width:320px;">Ações</th>
                             </tr>
@@ -79,7 +84,9 @@ $errors  = session()->getFlashdata('errors') ?? [];
                                 $min       = (int)($i['qtd_minima'] ?? 0);
                                 $ativo     = (int)($i['ativo'] ?? 1);
 
-                                $abaixoMin = $min > 0 && $qtd < $min;
+                                $precoVenda = (float)($i['preco_venda'] ?? 0);
+
+                                $abaixoMin  = $min > 0 && $qtd < $min;
                                 $badgeClass = !$ativo ? 'bg-secondary' : ($abaixoMin ? 'bg-danger' : 'bg-success');
                                 $badgeText  = !$ativo ? 'Inativo' : ($abaixoMin ? 'Baixo' : 'OK');
 
@@ -93,11 +100,22 @@ $errors  = session()->getFlashdata('errors') ?? [];
                                     </td>
                                     <td><?= esc($tipoNome) ?></td>
                                     <td><?= esc($titulo ?: '—') ?></td>
+
                                     <td class="text-center fw-bold"><?= $qtd ?></td>
-                                    <td class="text-center"><?= $min ?></td>
+
+                                    <td class="text-center">
+                                        <?php if ($precoVenda > 0): ?>
+                                            <span class="fw-semibold"><?= esc(brl($precoVenda)) ?></span>
+                                        <?php else: ?>
+                                            <span class="text-muted">—</span>
+                                            <div class="small text-muted">sem preço</div>
+                                        <?php endif; ?>
+                                    </td>
+
                                     <td class="text-center">
                                         <span class="badge <?= $badgeClass ?>"><?= esc($badgeText) ?></span>
                                     </td>
+
                                     <td class="text-end">
                                         <div class="btn-group">
                                             <button

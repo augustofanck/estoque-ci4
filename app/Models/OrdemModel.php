@@ -37,6 +37,12 @@ class OrdemModel extends Model
         'numero_nota',
         'vendedor',
         'obs',
+        'armacao_1_item_id',
+        'lente_1_item_id',
+        'armacao_2_item_id',
+        'lente_2_item_id',
+        'desconto_percentual',
+        'vendedor_id',
     ];
 
     protected $validationRules = [
@@ -49,7 +55,6 @@ class OrdemModel extends Model
         'consulta'                  => 'required',
         'pagamento_laboratorio'     => 'required',
 
-        // opcionais
         'valor_armacao_2'           => 'permit_empty|decimal',
         'valor_lente_2'             => 'permit_empty|decimal',
         'dia_pagamento_laboratorio' => 'permit_empty|valid_date[Y-m-d]',
@@ -57,6 +62,11 @@ class OrdemModel extends Model
         'data_entrega_oculos'       => 'permit_empty|valid_date[Y-m-d]',
         'dia_nota'                  => 'permit_empty|valid_date[Y-m-d]',
         'numero_nota'               => 'permit_empty|decimal',
+        'armacao_1_item_id',
+        'lente_1_item_id',
+        'armacao_2_item_id',
+        'lente_2_item_id',
+        'desconto_percentual',
     ];
 
     protected $validationMessages = [

@@ -6,8 +6,12 @@ use CodeIgniter\Model;
 
 class EstoqueItemModel extends Model
 {
-    protected $table      = 'estoque_itens';
-    protected $primaryKey = 'id';
+    protected $table            = 'estoque_itens';
+    protected $primaryKey       = 'id';
+    protected $useAutoIncrement = true;
+    protected $returnType       = 'array';
+    protected $useSoftDeletes   = true;
+
     protected $allowedFields = [
         'codigo',
         'tipo_id',
@@ -16,16 +20,31 @@ class EstoqueItemModel extends Model
         'atributos',
         'qtd_atual',
         'qtd_minima',
-        'ativo'
+        'preco_venda',
+        'ativo',
     ];
+
     protected $useTimestamps = true;
-    protected $useSoftDeletes = true;
+    protected $createdField  = 'created_at';
+    protected $updatedField  = 'updated_at';
+    protected $deletedField  = 'deleted_at';
 
     protected $validationRules = [
-        'codigo'  => 'required|min_length[2]|max_length[80]|is_unique[estoque_itens.codigo,id,{id}]',
-        'tipo_id' => 'required|is_natural_no_zero',
-        'ativo'   => 'permit_empty|in_list[0,1]',
-        'qtd_atual'  => 'permit_empty|integer',
-        'qtd_minima' => 'permit_empty|integer',
+        'codigo'      => 'required|max_length[80]',
+        'tipo_id'     => 'required|is_natural_no_zero',
+        'categoria'   => 'required|max_length[60]',
+        'qtd_atual'   => 'permit_empty|integer|greater_than_equal_to[0]',
+        'qtd_minima'  => 'permit_empty|integer|greater_than_equal_to[0]',
+        'preco_venda' => 'permit_empty|decimal|greater_than_equal_to[0]',
+        'ativo'       => 'permit_empty|in_list[0,1]',
+    ];
+
+    protected array $casts = [
+        'id'         => 'integer',
+        'tipo_id'    => 'integer',
+        'qtd_atual'  => 'integer',
+        'qtd_minima' => 'integer',
+        'ativo'      => 'integer',
+        'preco_venda' => 'float',
     ];
 }

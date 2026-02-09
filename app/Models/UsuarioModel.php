@@ -12,7 +12,7 @@ class UsuarioModel extends Model
     protected $useSoftDeletes   = false;
     protected $useTimestamps    = true;
 
-    protected $allowedFields    = ['name', 'email', 'password_hash', 'role'];
+    protected $allowedFields    = ['name', 'email', 'password_hash', 'role', 'is_active'];
 
     public function getRules(string $context = 'create'): array
     {
@@ -29,6 +29,18 @@ class UsuarioModel extends Model
         } else {
             $base['password']         = 'permit_empty|min_length[6]';
             $base['password_confirm'] = 'permit_empty|matches[password]';
+        }
+
+        if ($context === 'update') {
+            $base['id'] = 'required|is_natural_no_zero';
+            $base['email'] .= '|is_unique[users.email,id,{id}]';
+
+            $base['password'] = 'permit_empty|min_length[8]';
+            $base['password_confirm'] = 'permit_empty|matches[password]';
+        } else {
+            $base['email'] .= '|is_unique[users.email]';
+            $base['password'] = 'required|min_length[8]';
+            $base['password_confirm'] = 'required|matches[password]';
         }
 
         return $base;
