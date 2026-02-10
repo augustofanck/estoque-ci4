@@ -9,6 +9,7 @@ use App\Models\FormaPagamentoModel;
 use App\Models\OrdemItemModel;
 use App\Models\OrdemModel;
 use App\Models\OrdemPagamentoModel;
+use App\Models\UsuarioModel;
 
 class Ordem extends BaseController
 {
@@ -18,6 +19,7 @@ class Ordem extends BaseController
     private FormaPagamentoModel $formaPagamentoModel;
     private OrdemItemModel $ordemItemModel;
     private EstoqueItemModel $estoqueItemModel;
+    private UsuarioModel $usuarioModel;
 
     private array $dateFields = [
         'data_compra',
@@ -34,6 +36,86 @@ class Ordem extends BaseController
         $this->formaPagamentoModel = new FormaPagamentoModel();
         $this->ordemItemModel      = new OrdemItemModel();
         $this->estoqueItemModel    = new EstoqueItemModel();
+        $this->usuarioModel        = new UsuarioModel();
+    }
+
+    private function isAdmin(): bool
+    {
+        return (int) session('role') === 2;
+    }
+
+    private function isGerente(): bool
+    {
+        return (int) session('role') === 1;
+    }
+
+    private function currentUserId(): int
+    {
+        return (int) (session('uid') ?? 0);
+    }
+
+    private function getUserNameById(int $id): ?string
+    {
+        if ($id <= 0) return null;
+        $u = $this->usuarioModel->select('name')->where('id', $id)->first();
+        $name = trim((string) ($u['name'] ?? ''));
+        return $name !== '' ? $name : null;
+    }
+
+    private function getActiveUsers(): array
+    {
+        // Ajuste filtros se quiser (role, etc.). Aqui: ativos.
+        return $this->usuarioModel
+            ->select('id, name, email, role, is_active')
+            ->where('is_active', 1)
+            ->orderBy('name', 'ASC')
+            ->findAll();
+    }
+
+    private function applyVendedorRulesForSave(array $payload, ?array $ordemAtual = null): array
+    {
+        $isAdmin = $this->isAdmin();
+        $uid     = $this->currentUserId();
+
+        // ADMIN pode atribuir vendedor_id
+        if ($isAdmin) {
+            $vid = $payload['vendedor_id'] ?? null;
+            if ($vid === '' || $vid === null) {
+                // se não veio, mantém o atual (update) ou assume o usuário logado (create)
+                $payload['vendedor_id'] = isset($ordemAtual['vendedor_id'])
+                    ? ($ordemAtual['vendedor_id'] ?: null)
+                    : ($uid > 0 ? $uid : null);
+            } else {
+                $payload['vendedor_id'] = (int) $vid;
+            }
+        } else {
+            // Não-admin NÃO escolhe vendedor: é sempre o usuário logado
+            unset($payload['vendedor_id']);
+            $payload['vendedor_id'] = $uid > 0 ? $uid : null;
+        }
+
+        /**
+         * Mantém o campo legado (ordens.vendedor) SEMPRE.
+         * - Se já existe (ordem antiga): NÃO mexe.
+         * - Se está vazio (ordem nova / tela nova): preenche com o nome do user vinculado,
+         *   para ter fallback caso no futuro perca vínculo.
+         */
+        $legadoAtual = trim((string)($ordemAtual['vendedor'] ?? ''));
+        $legadoNovo  = trim((string)($payload['vendedor'] ?? ''));
+
+        if ($legadoAtual !== '') {
+            // Ordem antiga: mantém como está
+            $payload['vendedor'] = $legadoAtual;
+        } else {
+            // Ordem nova: se não veio legado, tenta preencher com o nome do usuário do vínculo
+            if ($legadoNovo === '') {
+                $vid = (int)($payload['vendedor_id'] ?? 0);
+                $name = $this->getUserNameById($vid);
+                if ($name) $payload['vendedor'] = $name;
+            }
+        }
+
+        return $payload;
     }
 
     private function moneyToFloat($v): float
@@ -91,7 +173,6 @@ class Ordem extends BaseController
 
     private function syncSegundoParRefs(int $ordemId): void
     {
-        // Regra: pega as 2 primeiras armações e 2 primeiras lentes da ordem (por ordem de inclusão)
         $rows = $this->ordemItemModel
             ->select('ordens_itens.produto_id, ei.categoria')
             ->join('estoque_itens ei', 'ei.id = ordens_itens.produto_id', 'left')
@@ -141,7 +222,6 @@ class Ordem extends BaseController
             $preco = (float) ($it['preco_unitario'] ?? 0);
             $totalItem = round($qtd * $preco, 2);
 
-            // mantém coluna total coerente
             $this->ordemItemModel->update((int)$it['id'], ['total' => $totalItem, 'desconto_valor' => 0.0]);
 
             $subtotal += $totalItem;
@@ -172,13 +252,6 @@ class Ordem extends BaseController
         $dataIni      = $this->toDbDate($dataIniRaw);
         $dataFim      = $this->toDbDate($dataFimRaw);
 
-        $map = [
-            'nome_cliente'  => 'c.nome',
-            'ordem_servico' => 'ordens.ordem_servico',
-            'vendedor'      => 'ordens.vendedor',
-        ];
-        $col = $map[$field] ?? 'c.nome';
-
         $pagAgg = '(SELECT ordem_id,
                 SUM(CASE WHEN status = "confirmado" AND deleted_at IS NULL THEN valor ELSE 0 END) AS total_pago,
                 SUM(CASE WHEN deleted_at IS NULL THEN 1 ELSE 0 END) AS qtd_pagamentos
@@ -186,21 +259,43 @@ class Ordem extends BaseController
            GROUP BY ordem_id) op';
 
         $builder = $this->model
-            ->select('ordens.*, c.nome AS cliente,
-              COALESCE(op.total_pago, 0) AS total_pago,
-              (ordens.valor_venda - COALESCE(op.total_pago, 0)) AS saldo,
-              COALESCE(op.qtd_pagamentos, 0) AS qtd_pagamentos')
+            ->select('ordens.*')
+            ->select('c.nome AS cliente')
+            ->select('COALESCE(op.total_pago, 0) AS total_pago', false)
+            ->select('(ordens.valor_venda - COALESCE(op.total_pago, 0)) AS saldo', false)
+            ->select('COALESCE(op.qtd_pagamentos, 0) AS qtd_pagamentos', false)
+            ->select('u.name AS vendedor_nome')
+            ->select('COALESCE(u.name, ordens.vendedor) AS vendedor_exibicao', false)
+            ->select('CASE WHEN ordens.vendedor_id IS NULL THEN 1 ELSE 0 END AS vendedor_legado', false)
             ->join('clientes c', 'c.id = ordens.cliente_id', 'left')
             ->join($pagAgg, 'op.ordem_id = ordens.id', 'left', false)
+            ->join('users u', 'u.id = ordens.vendedor_id', 'left')
             ->orderBy('ordens.id', 'DESC');
 
-
         if ($q !== '') {
-            $builder->like($col, $q);
+            // Campo de busca
+            if ($field === 'nome_cliente') {
+                $builder->like('c.nome', $q);
+            } elseif ($field === 'ordem_servico') {
+                $builder->like('ordens.ordem_servico', $q);
+            } elseif ($field === 'vendedor') {
+                // busca pelo nome do user OU pelo legado
+                $builder->like('COALESCE(u.name, ordens.vendedor)', $q, 'both', null, false);
+            } else {
+                $builder->like('c.nome', $q);
+            }
         }
 
         if ($vendedor !== '') {
-            $builder->where('ordens.vendedor', $vendedor);
+            // filtro por vendedor: aceita ID numérico OU nome (user/legado)
+            if (ctype_digit($vendedor)) {
+                $builder->where('ordens.vendedor_id', (int)$vendedor);
+            } else {
+                $builder->groupStart()
+                    ->where('u.name', $vendedor)
+                    ->orWhere('ordens.vendedor', $vendedor)
+                    ->groupEnd();
+            }
         }
 
         if ($applyDate) {
@@ -246,6 +341,9 @@ class Ordem extends BaseController
         $payload['tipo_lente_2']      = null; // legado
         $payload['promocao_segundo_par'] = (($payload['promocao_segundo_par'] ?? '0') === '1') ? 1 : 0;
 
+        // Regras de vendedor (vendedor_id + preserva vendedor legado)
+        $payload = $this->applyVendedorRulesForSave($payload, null);
+
         $payload = $this->normalizeMoneyArray($payload);
         $payload = $this->normalizeDatesForSave($payload);
 
@@ -283,60 +381,66 @@ class Ordem extends BaseController
 
     public function create()
     {
-        // Clientes para o select
-        $clientes = (new \App\Models\ClienteModel())
+        $clientes = (new ClienteModel())
             ->select('id, nome')
             ->orderBy('nome', 'ASC')
             ->findAll();
 
-        // Defaults da ordem (espelho)
-        // Observação: estou usando old() porque seu store/update fazem redirect()->back()->withInput()
-        // (mesmo que sua view nem sempre use old() diretamente, isso já te deixa pronto).
         $ordem = [
             'id' => null,
             'cliente_id' => old('cliente_id') ?: null,
             'status' => old('status') ?: 'aberta',
-            'data_compra' => old('data_compra') ?: '', // se quiser pré-preencher hoje: date('d/m/Y')
+            'data_compra' => old('data_compra') ?: '',
             'ordem_servico' => old('ordem_servico') ?: '',
             'vendedor' => old('vendedor') ?: '',
+            'vendedor_id' => old('vendedor_id') ?: ($this->currentUserId() ?: null),
             'desconto_percentual' => old('desconto_percentual') ?: '0.00',
             'promocao_segundo_par' => old('promocao_segundo_par') ? 1 : 0,
             'obs' => old('obs') ?: '',
-
-            // Mantém compatibilidade com campo legado do schema (sem usar na tela)
             'valor_venda' => 0.00,
-
-            // Campos de espelho de itens (podem existir/ser usados depois)
             'armacao_1_item_id' => null,
             'lente_1_item_id'   => null,
             'armacao_2_item_id' => null,
             'lente_2_item_id'   => null,
         ];
 
-        // Ainda não tem itens no create
         $itens = [];
 
-        // Totais para a tela (no create é tudo zero)
         $totais = [
             'subtotal'       => 0.00,
             'desconto_valor' => 0.00,
             'total'          => 0.00,
         ];
 
+        // Para a view: select de vendedores + flags
+        $users = $this->getActiveUsers();
+        $isAdmin = $this->isAdmin();
+        $isGerente = $this->isGerente();
+
         return view('ordens/form', [
-            'title'    => 'Nova Ordem',
-            'ordem'    => $ordem,
-            'clientes' => $clientes,
-            'itens'    => $itens,
-            'totais'   => $totais,
+            'title'          => 'Nova Ordem',
+            'ordem'          => $ordem,
+            'clientes'       => $clientes,
+            'itens'          => $itens,
+            'totais'         => $totais,
+            'users'          => $users,
+            'isAdmin'        => $isAdmin,
+            'isGerente'      => $isGerente,
+            'isLegacyVenda'  => false,
+            'vendedorExibicao' => $this->getUserNameById((int)($ordem['vendedor_id'] ?? 0)) ?? ($ordem['vendedor'] ?: ''),
         ]);
     }
 
-
     public function edit($id)
     {
-        $ordem = $this->model->find($id);
-        if (!$ordem) {
+        // Busca com JOIN pra ter nome do vendedor e fallback
+        $ordemJoin = $this->model
+            ->select('ordens.*, u.name AS vendedor_nome')
+            ->join('users u', 'u.id = ordens.vendedor_id', 'left')
+            ->where('ordens.id', (int)$id)
+            ->first();
+
+        if (!$ordemJoin) {
             return redirect()->to(site_url('ordens'))->with('errors', ['Registro não encontrado.']);
         }
 
@@ -371,26 +475,50 @@ class Ordem extends BaseController
             }
         }
 
-        $saldo = (float)($ordem['valor_venda'] ?? 0) - $totalPago;
+        $saldo = (float)($ordemJoin['valor_venda'] ?? 0) - $totalPago;
+
+        // Flags para a view (LEGADO quando não há vendedor_id)
+        $isLegacyVenda = empty($ordemJoin['vendedor_id']);
+        $vendedorExibicao = trim((string)($ordemJoin['vendedor_nome'] ?? '')) !== ''
+            ? $ordemJoin['vendedor_nome']
+            : (string)($ordemJoin['vendedor'] ?? '');
+
+        // Lista de users para admin atribuir vendedor_id
+        $users = $this->getActiveUsers();
 
         return view('ordens/form', [
-            'title'           => 'Editar Ordem',
-            'ordem'           => $this->model->find($id),
-            'clientes'        => $clientes,
-            'formasPagamento' => $formasPagamento,
-            'pagamentos'      => $pagamentos,
-            'itens'           => $itens,
-            'totais'          => $totais,
-            'financeiro'      => [
+            'title'            => 'Editar Ordem',
+            'ordem'            => $ordemJoin, // já vem com vendedor_nome
+            'clientes'         => $clientes,
+            'formasPagamento'  => $formasPagamento,
+            'pagamentos'       => $pagamentos,
+            'itens'            => $itens,
+            'totais'           => $totais,
+            'financeiro'       => [
                 'total_pago'     => $totalPago,
                 'saldo'          => $saldo,
                 'qtd_pagamentos' => count($pagamentos),
             ],
+
+            // Para a view implementar o comportamento pedido:
+            // - input readonly com vendedorExibicao
+            // - label "LEGADO" quando isLegacyVenda
+            // - select para atribuir vendedor_id quando isAdmin && isLegacyVenda (ou quando quiser permitir troca)
+            'users'            => $users,
+            'isAdmin'          => $this->isAdmin(),
+            'isGerente'        => $this->isGerente(),
+            'isLegacyVenda'    => $isLegacyVenda,
+            'vendedorExibicao' => $vendedorExibicao,
         ]);
     }
 
     public function update($id)
     {
+        $ordemAtual = $this->model->find((int)$id);
+        if (!$ordemAtual) {
+            return redirect()->to(site_url('ordens'))->with('errors', ['Registro não encontrado.']);
+        }
+
         $payload = $this->request->getPost();
         $payload['id'] = $id;
 
@@ -399,6 +527,12 @@ class Ordem extends BaseController
         unset($payload['valor_armacao_1'], $payload['valor_armacao_2'], $payload['valor_lente_1'], $payload['valor_lente_2']);
 
         $payload['promocao_segundo_par'] = (($payload['promocao_segundo_par'] ?? '0') === '1') ? 1 : 0;
+
+        // Regras de vendedor:
+        // - mantém legado em ordens.vendedor
+        // - admin pode atribuir vendedor_id
+        // - não-admin não altera vendedor_id
+        $payload = $this->applyVendedorRulesForSave($payload, $ordemAtual);
 
         $payload = $this->normalizeMoneyArray($payload);
         $payload = $this->normalizeDatesForSave($payload);
@@ -419,7 +553,6 @@ class Ordem extends BaseController
             return redirect()->back()->withInput()->with('errors', $errors);
         }
 
-        // se mudou desconto%, recalcula o total final
         $this->recalcularTotaisOrdem((int)$id);
 
         if ($isAjax) {
@@ -476,14 +609,14 @@ class Ordem extends BaseController
         $total = round($qtd * $precoUnit, 2);
 
         $this->ordemItemModel->insert([
-            'ordem_id'      => $ordemId,
-            'tipo'          => $tipo,
-            'produto_id'    => $produtoId,
-            'descricao'     => $descricao,
-            'quantidade'    => $qtd,
+            'ordem_id'       => $ordemId,
+            'tipo'           => $tipo,
+            'produto_id'     => $produtoId,
+            'descricao'      => $descricao,
+            'quantidade'     => $qtd,
             'preco_unitario' => $precoUnit,
             'desconto_valor' => 0.0,
-            'total'         => $total,
+            'total'          => $total,
         ]);
 
         $this->syncSegundoParRefs($ordemId);
@@ -546,7 +679,6 @@ class Ordem extends BaseController
         return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
             ->with('msg', 'Quantidade atualizada!');
     }
-
 
     public function itensDelete($ordemId, $itemId)
     {

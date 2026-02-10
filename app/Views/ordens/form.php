@@ -6,7 +6,10 @@
  * Espera variáveis:
  * - $ordem (array) | [] no create
  * - $clientes (array)
- * - $itens (array) itens da ordem (idealmente com: id, tipo, quantidade, preco_unitario, total, produto_codigo, produto_titulo, descricao)
+ * - $itens (array) itens da ordem
+ * - $users (array) lista de usuários (id, name) — somente para admin (ou vazio)
+ * - $isAdmin (bool)
+ * - $isLegacyVenda (bool) true quando NÃO há vínculo (vendedor_id NULL) e existe vendedor legado
  */
 
 $success = session()->getFlashdata('success');
@@ -18,7 +21,7 @@ $itens    = $itens ?? [];
 
 $isEdit = !empty($ordem['id']);
 
-// Rotas (conforme seu Routes.php)
+// Rotas
 $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('ordens');
 
 // Promoção 2º par (detecção automática quando tiver item_id 2)
@@ -41,18 +44,29 @@ foreach ($itens as $i) {
 }
 
 $descontoPercent = (float)($ordem['desconto_percentual'] ?? 0);
-if ($descontoPercent < 0) $descontoPercent = 0;
-if ($descontoPercent > 100) $descontoPercent = 100;
+$descontoPercent = max(0, min(100, $descontoPercent));
 
-$vendaBruta   = (float)($ordem['valor_venda'] ?? 0);
+$vendaBruta    = (float)($ordem['valor_venda'] ?? 0);
 $descontoVenda = $vendaBruta * ($descontoPercent / 100);
-$vendaLiquida = $vendaBruta - $descontoVenda;
-if ($vendaLiquida < 0) $vendaLiquida = 0;
+$vendaLiquida  = max(0, $vendaBruta - $descontoVenda);
 
 $lucro  = $vendaLiquida - $custoSubtotal;
 $margem = ($vendaLiquida > 0) ? (($lucro / $vendaLiquida) * 100) : 0;
 
 $lucroClass = $lucro >= 0 ? 'text-bg-success' : 'text-bg-danger';
+
+// Vendedor (permissões + exibição)
+$users   = $users ?? [];
+$isAdmin = (bool)($isAdmin ?? false);
+$isGerente = (bool)($isGerente ?? false);
+$isLegacyVenda = (bool)($isLegacyVenda ?? false);
+
+$canEditarVendedor      = $isGerente || $isAdmin;                   // só admin muda vínculo
+$mostrarIndicadorLegado = $isAdmin && $isLegacyVenda; // LEGADO só aparece pra admin
+
+// Sempre exibe algo no campo (pra qualquer perfil)
+$vendedorExibicao = (string)($ordem['vendedor_nome'] ?? $ordem['vendedor'] ?? '');
+$vendedorExibicao = trim($vendedorExibicao) !== '' ? $vendedorExibicao : '—';
 
 ?>
 
@@ -79,6 +93,7 @@ $lucroClass = $lucro >= 0 ? 'text-bg-success' : 'text-bg-danger';
         <div class="card-body">
             <div class="row g-3">
 
+                <!-- LINHA 1 (12 col) -->
                 <div class="col-md-4">
                     <label class="form-label">Cliente</label>
                     <select name="cliente_id" class="form-select" required>
@@ -115,32 +130,8 @@ $lucroClass = $lucro >= 0 ? 'text-bg-success' : 'text-bg-danger';
                         value="<?= esc($ordem['ordem_servico'] ?? '') ?>">
                 </div>
 
-                <div class="col-md-2">
-                    <label class="form-label">Vendedor</label>
-                    <input type="text" name="vendedor" class="form-control"
-                        value="<?= esc($ordem['vendedor'] ?? '') ?>">
-                </div>
-
-                <div class="col-md-2">
-                    <label class="form-label">Desconto (%)</label>
-                    <input type="number" name="desconto_percentual" step="0.01" min="0" max="100" class="form-control"
-                        value="<?= esc($ordem['desconto_percentual'] ?? '0.00') ?>">
-                    <div class="form-text">Aplica sobre o valor de venda (manual).</div>
-                </div>
-
-                <!-- Venda manual -->
-                <div class="col-md-4">
-                    <label class="form-label">Valor de venda (manual)</label>
-                    <div class="input-group">
-                        <span class="input-group-text">R$</span>
-                        <input type="text" name="valor_venda" class="form-control" placeholder="0,00"
-                            value="<?= esc($ordem['valor_venda'] ?? '0.00') ?>">
-                    </div>
-                </div>
-
-                <div class="col-md-3 d-flex align-items-center">
+                <div class="col-md-2 d-flex align-items-end">
                     <div class="form-check">
-                        <!-- garante 0 quando desmarcado -->
                         <input type="hidden" name="promocao_segundo_par" value="0">
                         <input class="form-check-input" type="checkbox"
                             name="promocao_segundo_par" value="1" id="promoSegundoPar"
@@ -153,6 +144,86 @@ $lucroClass = $lucro >= 0 ? 'text-bg-success' : 'text-bg-danger';
                         </label>
                     </div>
                 </div>
+
+                <!-- LINHA 2 (12 col) -->
+                <div class="col-md-3">
+                    <label class="form-label">
+                        Vendedor
+                        <?php if ($mostrarIndicadorLegado): ?>
+                            <span class="badge text-bg-warning ms-1">LEGADO</span>
+                        <?php endif; ?>
+                    </label>
+
+                    <input type="text"
+                        class="form-control"
+                        value="<?= esc($vendedorExibicao) ?>"
+                        readonly>
+
+                    <?php if ($mostrarIndicadorLegado): ?>
+                        <div class="form-text text-warning">
+                            Venda legado: sem vínculo. Regularize selecionando um vendedor ao lado.
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <?php if ($canEditarVendedor): ?>
+                    <div class="col-md-3">
+                        <label class="form-label">
+                            <?= $isLegacyVenda ? 'Atribuir vendedor' : 'Alterar vendedor' ?>
+                        </label>
+
+                        <?php $selVend = (string) old('vendedor_id', (string)($ordem['vendedor_id'] ?? '')); ?>
+                        <select name="vendedor_id" class="form-select">
+                            <option value="">— Selecione —</option>
+                            <?php foreach ($users as $u): ?>
+                                <option value="<?= (int)$u['id'] ?>" <?= $selVend === (string)$u['id'] ? 'selected' : '' ?>>
+                                    <?= esc($u['name'] ?? ('Usuário #' . (int)$u['id'])) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+
+                        <div class="form-text">
+                            Vincula a ordem a um usuário vendedor (o nome legado é preservado para auditoria).
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <!-- Valor venda: fecha a linha 2 com 12 col -->
+                <div class="col-md-4">
+                    <label class="form-label">Valor de venda (manual)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">R$</span>
+                        <input type="text" name="valor_venda" class="form-control" placeholder="0,00"
+                            value="<?= esc($ordem['valor_venda'] ?? '0.00') ?>">
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">Desconto (%)</label>
+                    <input type="number" name="desconto_percentual" step="0.01" min="0" max="100" class="form-control"
+                        value="<?= esc($ordem['desconto_percentual'] ?? '0.00') ?>">
+                    <div class="form-text">Aplica sobre o valor de venda.</div>
+                </div>
+
+                <!-- LINHA 3 -->
+
+                <?php if ($isAdmin): ?>
+
+                    <div class="col-md-12">
+                        <div class="p-2 border rounded-2 bg-light">
+                            <div class="d-flex flex-wrap gap-3">
+                                <div><strong>Custo:</strong> R$ <?= esc($fmt($custoSubtotal)) ?></div>
+                                <div><strong>Venda líquida:</strong> R$ <?= esc($fmt($vendaLiquida)) ?></div>
+                                <div>
+                                    <strong>Lucro:</strong>
+                                    <span class="badge <?= $lucroClass ?>">R$ <?= esc($fmt($lucro)) ?></span>
+                                </div>
+                                <div><strong>Margem:</strong> <?= esc($fmt($margem)) ?>%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                <?php endif; ?>
 
                 <div class="col-12">
                     <label class="form-label">Observações</label>
@@ -312,7 +383,6 @@ $lucroClass = $lucro >= 0 ? 'text-bg-success' : 'text-bg-danger';
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <style>
-    /* mantém alinhado com input do Bootstrap */
     .select2-container .select2-selection--single {
         height: 38px;
     }
@@ -338,14 +408,6 @@ $lucroClass = $lucro >= 0 ? 'text-bg-success' : 'text-bg-danger';
             searching: () => 'Buscando…'
         };
 
-        function toBRMoney(v) {
-            const n = Number(v || 0);
-            return n.toLocaleString('pt-BR', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            });
-        }
-
         function fmtBRL(v) {
             const n = Number(v || 0);
             return n.toLocaleString('pt-BR', {
@@ -361,7 +423,6 @@ $lucroClass = $lucro >= 0 ? 'text-bg-success' : 'text-bg-danger';
         const $wrapQtd = $('#wrapQtd');
         const $produtoMeta = $('#produtoMeta');
 
-        // Toggla UI + classe da Qtd
         function syncTipoUI() {
             const t = $tipo.val();
             const isServico = (t === 'servico');
@@ -370,10 +431,8 @@ $lucroClass = $lucro >= 0 ? 'text-bg-success' : 'text-bg-danger';
             $wrapServico.toggleClass('d-none', !isServico);
             $wrapServicoPreco.toggleClass('d-none', !isServico);
 
-            // CRITICAL: Qtd col-md-2 (produto) -> col-md-1 (serviço)
             $wrapQtd.removeClass('col-md-2 col-md-1').addClass(isServico ? 'col-md-1' : 'col-md-2');
 
-            // limpa meta quando troca
             if (isServico) {
                 $produtoMeta.text('Serviço: custo será digitado manualmente.');
                 $('#produto_id').val(null).trigger('change');
@@ -382,10 +441,10 @@ $lucroClass = $lucro >= 0 ? 'text-bg-success' : 'text-bg-danger';
                 $produtoMeta.text('Selecione um item para puxar o custo automaticamente.');
             }
         }
+
         $tipo.on('change', syncTipoUI);
         syncTipoUI();
 
-        // Select2 Produto
         $('#produto_id').select2({
             placeholder: 'Buscar item no estoque…',
             allowClear: true,
@@ -404,30 +463,27 @@ $lucroClass = $lucro >= 0 ? 'text-bg-success' : 'text-bg-danger';
             templateResult: (item) => {
                 if (!item.id) return item.text;
 
-                // Esperado do backend: preco_custo e (opcional) preco_venda
                 const custo = item.preco_custo ?? item.preco_venda ?? 0;
                 const saldo = (typeof item.qtd_atual !== 'undefined') ? ` • saldo: ${item.qtd_atual}` : '';
                 const cat = item.categoria ? ` • ${item.categoria}` : '';
 
                 return $(`
-                <div class="d-flex justify-content-between gap-2">
-                    <div>
-                        <div class="fw-semibold">${item.text}</div>
-                        <div class="small text-muted">${cat}${saldo}</div>
+                    <div class="d-flex justify-content-between gap-2">
+                        <div>
+                            <div class="fw-semibold">${item.text}</div>
+                            <div class="small text-muted">${cat}${saldo}</div>
+                        </div>
+                        <small class="text-muted">${fmtBRL(custo)}</small>
                     </div>
-                    <small class="text-muted">${fmtBRL(custo)}</small>
-                </div>
-            `);
+                `);
             },
             templateSelection: (item) => item.text || item.id
         }).on('select2:select', function(e) {
             const d = e.params.data || {};
             const custo = d.preco_custo ?? d.preco_venda ?? 0;
 
-            // hidden: custo unitário do produto
             $('#preco_unitario_produto').val(String(custo));
 
-            // feedback ao usuário
             const saldo = (typeof d.qtd_atual !== 'undefined') ? `Saldo: ${d.qtd_atual}` : '';
             $produtoMeta.html(`Custo puxado do estoque: <strong>${fmtBRL(custo)}</strong>${saldo ? ' • ' + saldo : ''}`);
         }).on('select2:clear', function() {
@@ -435,17 +491,11 @@ $lucroClass = $lucro >= 0 ? 'text-bg-success' : 'text-bg-danger';
             $produtoMeta.text('Selecione um item para puxar o custo automaticamente.');
         });
 
-        // Antes de enviar ADD ITEM:
-        // - produto: injeta preco_unitario (custo) no campo do backend (reaproveitando o name preco_unitario)
-        // - serviço: usa o input preco_unitario visível
         $('#formAddItem').on('submit', function() {
             const tipo = $tipo.val();
             if (tipo === 'produto') {
-                // cria um input hidden "preco_unitario" com o custo do produto
-                // (evita depender do campo de serviço)
                 const v = $('#preco_unitario_produto').val() || '0';
 
-                // remove anteriores para não duplicar
                 $(this).find('input[name="preco_unitario"][data-auto="1"]').remove();
 
                 $('<input>', {
