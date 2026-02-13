@@ -120,13 +120,8 @@ class Ordem extends BaseController
 
     private function moneyToFloat($v): float
     {
-        $v = trim((string) $v);
-        if ($v === '') return 0.0;
-        // aceita "1.234,56" e "1234.56"
-        $v = str_replace(['R$', ' '], '', $v);
-        $v = str_replace('.', '', $v);
-        $v = str_replace(',', '.', $v);
-        return (float) $v;
+        // reaproveita sua normalizeMoney() (que já é robusta)
+        return (float) $this->normalizeMoney((string)$v);
     }
 
     private function normalizeMoneyArray(array $payload): array
@@ -233,10 +228,6 @@ class Ordem extends BaseController
         $descontoValor = round($subtotal * ($descPercent / 100), 2);
         $totalFinal    = max(0.0, round($subtotal - $descontoValor, 2));
 
-        $this->model->update($ordemId, [
-            'valor_venda' => $totalFinal,
-        ]);
-
         return ['subtotal' => $subtotal, 'desconto_valor' => $descontoValor, 'total' => $totalFinal];
     }
 
@@ -332,7 +323,6 @@ class Ordem extends BaseController
         $payload = $this->request->getPost();
 
         // Agora o total vem dos itens do estoque -> na criação a ordem começa zerada.
-        $payload['valor_venda']       = 0;
         $payload['valor_armacao_1']   = 0;
         $payload['valor_armacao_2']   = null;
         $payload['valor_lente_1']     = 0;
@@ -523,7 +513,6 @@ class Ordem extends BaseController
         $payload['id'] = $id;
 
         // total vem dos itens (não aceitar edição manual)
-        unset($payload['valor_venda']);
         unset($payload['valor_armacao_1'], $payload['valor_armacao_2'], $payload['valor_lente_1'], $payload['valor_lente_2']);
 
         $payload['promocao_segundo_par'] = (($payload['promocao_segundo_par'] ?? '0') === '1') ? 1 : 0;
@@ -699,5 +688,135 @@ class Ordem extends BaseController
         }
 
         return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))->with('msg', 'Item removido!');
+    }
+
+    private function normalizeMoney(?string $raw): string
+    {
+        $raw = trim((string)$raw);
+        if ($raw === '') return '0.00';
+
+        // mantém só números e separadores
+        $raw = preg_replace('/[^0-9.,]/', '', $raw);
+
+        $lastComma = strrpos($raw, ',');
+        $lastDot   = strrpos($raw, '.');
+
+        // Se a última vírgula vem depois do último ponto, assume vírgula decimal
+        if ($lastComma !== false && ($lastDot === false || $lastComma > $lastDot)) {
+            $raw = str_replace('.', '', $raw);   // remove separador de milhar
+            $raw = str_replace(',', '.', $raw);  // troca decimal
+        } else {
+            // caso padrão: ponto decimal, remove vírgulas (milhar)
+            $raw = str_replace(',', '', $raw);
+        }
+
+        if (!is_numeric($raw)) return '0.00';
+
+        $v = (float)$raw;
+        if ($v < 0) $v = 0;
+
+        return number_format($v, 2, '.', '');
+    }
+
+    public function addPagamento($ordemId)
+    {
+        $ordemId = (int) $ordemId;
+        $ordem = $this->model->find($ordemId);
+
+        if (!$ordem) {
+            return redirect()->to(site_url('ordens'))->with('errors', ['Ordem não encontrada.']);
+        }
+
+        $valor = $this->normalizeMoney((string) $this->request->getPost('valor'));
+        if ($valor === null || (float)$valor <= 0) {
+            return redirect()->back()->withInput()->with('errors', ['Informe um valor de pagamento válido.']);
+        }
+
+        $formaId = $this->request->getPost('forma_pagamento_id');
+        $formaId = ($formaId === '' || $formaId === null) ? null : (int)$formaId;
+
+        $dataRaw = (string)$this->request->getPost('data_pagamento');
+        $dataDb  = $this->toDbDate($dataRaw);
+        $dataPagamento = $dataDb ? ($dataDb . ' 00:00:00') : date('Y-m-d H:i:s');
+
+        $obs = trim((string)$this->request->getPost('obs'));
+
+        // Total atual confirmado
+        $row = $this->pagamentoModel
+            ->select('COALESCE(SUM(valor),0) AS total', false)
+            ->where('ordem_id', $ordemId)
+            ->where('status', 'confirmado')
+            ->first();
+
+        $totalAtual = (float)($row['total'] ?? 0);
+        $novoTotal  = $totalAtual + (float)$valor;
+
+        $valorVenda = (float)($ordem['valor_venda'] ?? 0);
+        $eps = 0.0001;
+
+        // Tipo automático
+        if ($novoTotal >= ($valorVenda - $eps) && $valorVenda > 0) {
+            $tipo = 'quitacao';
+        } elseif ($totalAtual <= $eps) {
+            $tipo = 'entrada';
+        } else {
+            $tipo = 'parcial';
+        }
+
+        $valorVenda = (float)($ordem['valor_venda'] ?? 0);
+        $eps = 0.0001;
+
+        $row = $this->pagamentoModel
+            ->select('COALESCE(SUM(valor),0) AS total', false)
+            ->where('ordem_id', $ordemId)
+            ->where('status', 'confirmado')
+            ->first();
+
+        $totalAtual = (float)($row['total'] ?? 0);
+        $saldoAtual = $valorVenda - $totalAtual;
+
+        if ($valorVenda > 0 && $saldoAtual <= $eps) {
+            return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
+                ->with('errors', ['Ordem já quitada. Não é possível registrar novo pagamento.']);
+        }
+
+        if ($valorVenda > 0 && (float)$valor > ($saldoAtual + $eps)) {
+            return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
+                ->with('errors', ['O valor do pagamento excede o saldo atual da ordem.']);
+        }
+
+        if (!$this->pagamentoModel->insert([
+            'ordem_id'           => $ordemId,
+            'forma_pagamento_id' => $formaId,
+            'valor'              => $valor,
+            'status'             => 'confirmado',
+            'data_pagamento'     => $dataPagamento,
+            'tipo'               => $tipo,
+            'origem'             => 'sistema',
+            'obs'                => $obs !== '' ? $obs : null,
+        ])) {
+            return redirect()->back()->withInput()->with('errors', $this->pagamentoModel->errors());
+        }
+
+        return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
+            ->with('msg', 'Pagamento registrado com sucesso!');
+    }
+
+    public function deletePagamento($ordemId, $pagamentoId)
+    {
+        $ordemId = (int)$ordemId;
+        $pagamentoId = (int)$pagamentoId;
+
+        $pag = $this->pagamentoModel->find($pagamentoId);
+
+        if (!$pag || (int)($pag['ordem_id'] ?? 0) !== $ordemId) {
+            return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
+                ->with('errors', ['Pagamento não encontrado.']);
+        }
+
+        $this->pagamentoModel->delete($pagamentoId);
+
+        return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
+            ->with('msg', 'Pagamento removido.');
     }
 }

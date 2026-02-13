@@ -15,18 +15,6 @@ class Clientes extends BaseController
         $this->model = new ClienteModel();
     }
 
-    private function toDbDate(?string $v): ?string
-    {
-        $v = trim((string)$v);
-        if ($v === '') return null;
-        if (preg_match('#^\d{2}/\d{2}/\d{4}$#', $v)) {
-            $d = \DateTime::createFromFormat('d/m/Y', $v);
-            return $d && $d->format('d/m/Y') === $v ? $d->format('Y-m-d') : null;
-        }
-        if (preg_match('#^\d{4}-\d{2}-\d{2}$#', $v)) return $v;
-        return null;
-    }
-
     private function fromDbDate(?string $v): string
     {
         $v = trim((string)$v);

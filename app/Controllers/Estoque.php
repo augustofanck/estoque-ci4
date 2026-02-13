@@ -124,7 +124,7 @@ class Estoque extends BaseController
             'categoria',
             'atributos',
             'qtd_minima',
-            'preco_venda', // NOVO
+            'preco_venda',
         ]);
 
         // Normaliza preço de venda
@@ -139,6 +139,7 @@ class Estoque extends BaseController
 
         $dados['qtd_atual'] = 0;
         $dados['ativo'] = 1;
+        $dados['categoria'] = 'armacao';
 
         if (!$this->itemModel->insert($dados)) {
             return redirect()->back()
@@ -179,7 +180,7 @@ class Estoque extends BaseController
             'atributos',
             'qtd_minima',
             'ativo',
-            'preco_venda', // NOVO
+            'preco_venda',
         ]);
 
         // Normaliza preço de venda

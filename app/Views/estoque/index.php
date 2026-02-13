@@ -96,7 +96,6 @@ function brl($v): string
                                     <td class="text-muted">#<?= $id ?></td>
                                     <td>
                                         <div class="fw-semibold"><?= esc($codigo) ?></div>
-                                        <div class="small text-muted"><?= esc($i['categoria'] ?? 'armacao') ?></div>
                                     </td>
                                     <td><?= esc($tipoNome) ?></td>
                                     <td><?= esc($titulo ?: '—') ?></td>
