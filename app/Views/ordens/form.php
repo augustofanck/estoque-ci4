@@ -239,22 +239,25 @@ $vendedorExibicao = trim($vendedorExibicao) !== '' ? $vendedorExibicao : '—';
                     </div>
                 <?php endif; ?>
 
-                <!-- Valor venda: fecha a linha 2 com 12 col -->
-                <div class="col-md-4">
-                    <label class="form-label">Valor de venda (manual)</label>
-                    <div class="input-group">
-                        <span class="input-group-text">R$</span>
-                        <input type="text" name="valor_venda" class="form-control" placeholder="0,00"
-                            value="<?= esc(old('valor_venda', $fmt($ordem['valor_venda'] ?? 0))) ?>">
+                <?php $notaGerada = (int) old('nota_gerada', (int)($ordem['nota_gerada'] ?? 0)); ?>
+
+                <div class="col-md-3 d-flex align-items-center">
+                    <div class="form-check">
+                        <input type="hidden" name="nota_gerada" value="0">
+                        <input class="form-check-input" type="checkbox" id="nota_gerada" name="nota_gerada" value="1"
+                            <?= $notaGerada ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="nota_gerada">Nota gerada?</label>
                     </div>
                 </div>
 
-                <div class="col-md-2">
-                    <label class="form-label">Desconto (%)</label>
-                    <input type="number" name="desconto_percentual" step="0.01" min="0" max="100" class="form-control"
-                        value="<?= esc($ordem['desconto_percentual'] ?? '0.00') ?>">
-                    <div class="form-text">Aplica sobre o valor de venda.</div>
+                <div class="col-md-3 <?= $notaGerada ? '' : 'invisible pe-none' ?>" id="wrapDiaNota" aria-hidden="<?= $notaGerada ? 'false' : 'true' ?>">
+                    <label class="form-label">Dia da nota</label>
+                    <input type="text" name="dia_nota" class="form-control date-mask"
+                        placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
+                        value="<?= old('dia_nota', $ordem['dia_nota'] ?? '') ?>"
+                        <?= $notaGerada ? '' : 'disabled' ?>>
                 </div>
+
 
 
                 <div class="col-md-3">
@@ -272,6 +275,22 @@ $vendedorExibicao = trim($vendedorExibicao) !== '' ? $vendedorExibicao : '—';
                         <span class="input-group-text">R$</span>
                         <input type="text" name="pagamento_laboratorio" class="form-control" inputmode="decimal" placeholder="0,00" value="<?= esc(old('pagamento_laboratorio', $fmt($ordem['pagamento_laboratorio']) ?? '')) ?>">
                     </div>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Valor de venda (manual)</label>
+                    <div class="input-group">
+                        <span class="input-group-text">R$</span>
+                        <input type="text" name="valor_venda" class="form-control" placeholder="0,00"
+                            value="<?= esc(old('valor_venda', $fmt($ordem['valor_venda'] ?? 0))) ?>">
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label">Desconto (%)</label>
+                    <input type="number" name="desconto_percentual" step="0.01" min="0" max="100" class="form-control"
+                        value="<?= esc($ordem['desconto_percentual'] ?? '0.00') ?>">
+                    <div class="form-text">Aplica sobre o valor de venda.</div>
                 </div>
 
                 <!-- LINHA 3 -->
@@ -1013,6 +1032,32 @@ $vendedorExibicao = trim($vendedorExibicao) !== '' ? $vendedorExibicao : '—';
         });
 
     })();
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const chk = document.getElementById('nota_gerada');
+        const wrap = document.getElementById('wrapDiaNota');
+        const inp = document.querySelector('input[name="dia_nota"]');
+
+        if (!chk || !wrap || !inp) return;
+
+        function syncDiaNota() {
+            const on = chk.checked;
+
+            // mantém o espaço, só “some” visualmente
+            wrap.classList.toggle('invisible', !on);
+            wrap.classList.toggle('pe-none', !on);
+            wrap.setAttribute('aria-hidden', on ? 'false' : 'true');
+
+            // não deixa enviar valor escondido
+            inp.disabled = !on;
+            if (!on) inp.value = '';
+        }
+
+        chk.addEventListener('change', syncDiaNota);
+        syncDiaNota();
+    });
 </script>
 
 <?= $this->endSection() ?>
