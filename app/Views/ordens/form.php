@@ -512,7 +512,7 @@ $vendedorExibicao = trim($vendedorExibicao) !== '' ? $vendedorExibicao : '—';
                                     $tot    = (float)($i['total'] ?? ($qtd * $pu));
 
                                     $label = $tipo === 'produto'
-                                        ? trim((string)($i['produto_codigo'] ?? '')) . ' — ' . trim((string)($i['produto_titulo'] ?? ''))
+                                        ? trim((string)($i['codigo'] ?? '')) . ' — ' . trim((string)($i['titulo'] ?? ''))
                                         : (string)($i['descricao'] ?? 'Serviço');
                                     ?>
                                     <tr>
