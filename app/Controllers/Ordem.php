@@ -566,7 +566,27 @@ class Ordem extends BaseController
         $payload = $this->request->getPost();
 
         $tipo = $payload['tipo'] ?? 'produto';
-        $qtd  = max(1, (int)($payload['quantidade'] ?? 1));
+
+        // valida inteiro e bloqueia 0/negativo
+        $qtdRaw = $payload['quantidade'] ?? null;
+        $qtd = filter_var($qtdRaw, FILTER_VALIDATE_INT);
+        $qtd = ($qtd === false) ? 0 : (int)$qtd;
+
+        if ($qtd <= 0) {
+            $msg = 'Quantidade inválida: não é permitido informar 0. Digite um número maior que zero.';
+
+            if ($this->request->isAJAX()) {
+                return $this->response->setStatusCode(422)->setJSON([
+                    'ok'   => false,
+                    'msg'  => $msg,
+                    'csrf' => csrf_hash(),
+                ]);
+            }
+
+            return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
+                ->with('error', $msg)
+                ->withInput();
+        }
 
         $produtoId  = null;
         $descricao  = null;
@@ -574,6 +594,7 @@ class Ordem extends BaseController
 
         if ($tipo === 'produto') {
             $produtoId = (int)($payload['produto_id'] ?? 0);
+
             $produto = $this->estoqueItemModel
                 ->select('id, codigo, titulo, preco_venda')
                 ->where('id', $produtoId)
@@ -581,11 +602,19 @@ class Ordem extends BaseController
                 ->first();
 
             if (!$produto) {
-                return $this->response->setStatusCode(404)->setJSON([
-                    'ok'    => false,
-                    'msg'   => 'Item de estoque não encontrado.',
-                    'csrf'  => csrf_hash(),
-                ]);
+                $msg = 'Item de estoque não encontrado.';
+
+                if ($this->request->isAJAX()) {
+                    return $this->response->setStatusCode(404)->setJSON([
+                        'ok'   => false,
+                        'msg'  => $msg,
+                        'csrf' => csrf_hash(),
+                    ]);
+                }
+
+                return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
+                    ->with('error', $msg)
+                    ->withInput();
             }
 
             $precoUnit = (float)($produto['preco_venda'] ?? 0);
@@ -619,7 +648,8 @@ class Ordem extends BaseController
             ]);
         }
 
-        return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))->with('msg', 'Item adicionado!');
+        return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
+            ->with('success', 'Item adicionado!');
     }
 
     public function itensUpdate($ordemId, $itemId)
@@ -627,7 +657,26 @@ class Ordem extends BaseController
         $ordemId = (int) $ordemId;
         $itemId  = (int) $itemId;
 
-        $qtd = max(1, (int)($this->request->getPost('quantidade') ?? 1));
+        // valida inteiro e bloqueia 0/negativo
+        $qtdPost = $this->request->getPost('quantidade');
+        $qtd = filter_var($qtdPost, FILTER_VALIDATE_INT);
+        $qtd = ($qtd === false) ? 0 : (int)$qtd;
+
+        if ($qtd <= 0) {
+            $msg = 'Quantidade inválida: não é permitido informar 0. Digite um número maior que zero.';
+
+            if ($this->request->isAJAX()) {
+                return $this->response->setStatusCode(422)->setJSON([
+                    'ok'   => false,
+                    'msg'  => $msg,
+                    'csrf' => csrf_hash(),
+                ]);
+            }
+
+            return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
+                ->with('error', $msg)
+                ->withInput();
+        }
 
         $item = $this->ordemItemModel
             ->where('id', $itemId)
@@ -635,15 +684,18 @@ class Ordem extends BaseController
             ->first();
 
         if (!$item) {
+            $msg = 'Item da ordem não encontrado.';
+
             if ($this->request->isAJAX()) {
                 return $this->response->setStatusCode(404)->setJSON([
                     'ok'   => false,
-                    'msg'  => 'Item da ordem não encontrado.',
+                    'msg'  => $msg,
                     'csrf' => csrf_hash(),
                 ]);
             }
+
             return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
-                ->with('errors', ['Item da ordem não encontrado.']);
+                ->with('error', $msg);
         }
 
         $precoUnit = (float)($item['preco_unitario'] ?? 0);
@@ -666,8 +718,10 @@ class Ordem extends BaseController
         }
 
         return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))
-            ->with('msg', 'Quantidade atualizada!');
+            ->with('success', 'Quantidade atualizada!');
     }
+
+
 
     public function itensDelete($ordemId, $itemId)
     {
@@ -687,7 +741,7 @@ class Ordem extends BaseController
             ]);
         }
 
-        return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))->with('msg', 'Item removido!');
+        return redirect()->to(site_url('ordens/' . $ordemId . '/edit'))->with('msg', 'Item removido com sucesso!');
     }
 
     private function normalizeMoney(?string $raw): string

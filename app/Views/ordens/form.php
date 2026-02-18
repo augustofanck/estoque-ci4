@@ -548,9 +548,12 @@ $vendedorExibicao = trim($vendedorExibicao) !== '' ? $vendedorExibicao : '—';
                                                 method="post"
                                                 class="d-flex justify-content-end gap-2">
                                                 <?= csrf_field() ?>
+                                                <input type="hidden" name="_method" value="PUT">
+
                                                 <input type="number" name="quantidade" min="1" step="1"
                                                     class="form-control form-control-sm" style="width:90px"
                                                     value="<?= esc($qtd) ?>">
+
                                                 <button class="btn btn-sm btn-outline-primary" title="Atualizar quantidade">OK</button>
                                             </form>
                                         </td>
@@ -559,11 +562,13 @@ $vendedorExibicao = trim($vendedorExibicao) !== '' ? $vendedorExibicao : '—';
                                         <td class="text-end">R$ <?= esc($fmt($tot)) ?></td>
 
                                         <td class="text-end">
-                                            <form action="<?= site_url('ordens/' . $ordem['id'] . '/itens/' . $idItem . '/delete') ?>"
+                                            <form action="<?= site_url('ordens/' . $ordem['id'] . '/itens/' . $idItem) ?>"
                                                 method="post"
                                                 onsubmit="return confirm('Remover este item?')"
                                                 class="d-inline">
                                                 <?= csrf_field() ?>
+                                                <input type="hidden" name="_method" value="DELETE">
+
                                                 <button class="btn btn-sm btn-outline-danger">Remover</button>
                                             </form>
                                         </td>
