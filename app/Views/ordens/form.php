@@ -47,6 +47,11 @@ foreach ($itens as $i) {
     $custoSubtotal += $tot;
 }
 
+$valorLab     = (float)($ordem['pagamento_laboratorio'] ?? 0);
+$valorConsulta = (float)($ordem['consulta'] ?? 0);
+
+$custoSubtotal += $valorLab + $valorConsulta;
+
 $descontoPercent = (float)($ordem['desconto_percentual'] ?? 0);
 $descontoPercent = max(0, min(100, $descontoPercent));
 
@@ -94,10 +99,15 @@ $badgeSaldo =
 
 $saldoDisplay = $saldo;
 
+$notaGerada = (int) old('nota_gerada', (int)($ordem['nota_gerada'] ?? 0));
+$numeroNota = (string) old('numero_nota', (string)($ordem['numero_nota'] ?? ''));
+
+
 // Vendedor (permissões + exibição)
 $users   = $users ?? [];
-$isAdmin = (bool)($isAdmin ?? false);
+$isAdmin   = (bool)($isAdmin ?? false);
 $isGerente = (bool)($isGerente ?? false);
+$gerentePlus = ($isGerente || $isAdmin);
 $isLegacyVenda = (bool)($isLegacyVenda ?? false);
 
 $canEditarVendedor      = $isAdmin;
@@ -191,7 +201,7 @@ $placeholderLabel = $isLegacyVenda
 
                 <div class="col-md-2">
                     <label class="form-label">Data compra</label>
-                    <input type="text" name="data_compra" class="form-control date-mask" placeholder="dd/mm/aaaa"
+                    <input type="text" name="data_compra" class="form-control date-mask" placeholder="DD/MM/AAAA"
                         value="<?= esc($ordem['data_compra'] ?? '') ?>">
                 </div>
 
@@ -232,8 +242,7 @@ $placeholderLabel = $isLegacyVenda
                     <select
                         name="vendedor_id"
                         id="vendedor_id"
-                        class="form-select"
-                        <?= $canEditarVendedor ? '' : 'disabled' ?>>
+                        class="form-select">
                         <option value="" <?= $selVend === '' ? 'selected' : '' ?>>
                             <?= esc($placeholderLabel) ?>
                         </option>
@@ -266,9 +275,7 @@ $placeholderLabel = $isLegacyVenda
                     <?php endif; ?>
                 </div>
 
-                <?php $notaGerada = (int) old('nota_gerada', (int)($ordem['nota_gerada'] ?? 0)); ?>
-
-                <div class="col-md-3 d-flex align-items-center">
+                <div class="col-md-2 d-flex align-items-center">
                     <div class="form-check">
                         <input type="hidden" name="nota_gerada" value="0">
                         <input class="form-check-input" type="checkbox" id="nota_gerada" name="nota_gerada" value="1"
@@ -277,7 +284,19 @@ $placeholderLabel = $isLegacyVenda
                     </div>
                 </div>
 
-                <div class="col-md-3 <?= $notaGerada ? '' : 'invisible pe-none' ?>" id="wrapDiaNota" aria-hidden="<?= $notaGerada ? 'false' : 'true' ?>">
+                <div class="col-md-2 <?= $notaGerada ? '' : 'invisible pe-none' ?>" id="wrapNumeroNota" aria-hidden="<?= $notaGerada ? 'false' : 'true' ?>">
+                    <label class="form-label">Nº da nota</label>
+                    <input type="text"
+                        name="numero_nota"
+                        class="form-control"
+                        placeholder="Ex: 12345"
+                        inputmode="numeric"
+                        maxlength="30"
+                        value="<?= esc($numeroNota) ?>"
+                        <?= $notaGerada ? '' : 'disabled' ?>>
+                </div>
+
+                <div class="col-md-2 <?= $notaGerada ? '' : 'invisible pe-none' ?>" id="wrapDiaNota" aria-hidden="<?= $notaGerada ? 'false' : 'true' ?>">
                     <label class="form-label">Dia da nota</label>
                     <input type="text" name="dia_nota" class="form-control date-mask"
                         placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
@@ -296,13 +315,20 @@ $placeholderLabel = $isLegacyVenda
                     </div>
                 </div>
 
-                <div class="col-md-3">
-                    <label class="form-label">Valor do laboratório</label>
-                    <div class="input-group">
-                        <span class="input-group-text">R$</span>
-                        <input type="text" name="pagamento_laboratorio" class="form-control" inputmode="decimal" placeholder="0,00" value="<?= esc(old('pagamento_laboratorio', $fmt($ordem['pagamento_laboratorio'] ?? 0))) ?>">
+                <?php if ($gerentePlus): ?>
+                    <div class="col-md-3">
+                        <label class="form-label">Valor do laboratório</label>
+                        <div class="input-group">
+                            <span class="input-group-text">R$</span>
+                            <input type="text" name="pagamento_laboratorio"
+                                class="form-control" inputmode="decimal" placeholder="0,00"
+                                value="<?= esc(old('pagamento_laboratorio', $fmt($ordem['pagamento_laboratorio'] ?? 0))) ?>">
+                        </div>
                     </div>
-                </div>
+                <?php else: ?>
+                    <input type="hidden" name="pagamento_laboratorio"
+                        value="<?= esc(old('pagamento_laboratorio', $fmt($ordem['pagamento_laboratorio'] ?? 0))) ?>">
+                <?php endif; ?>
 
                 <div class="col-md-4">
                     <label class="form-label">Valor de venda (manual)</label>
@@ -313,11 +339,10 @@ $placeholderLabel = $isLegacyVenda
                     </div>
                 </div>
 
-                <div class="col-md-2">
-                    <label class="form-label">Desconto (%)</label>
-                    <input type="number" name="desconto_percentual" step="0.01" min="0" max="100" class="form-control"
-                        value="<?= esc($ordem['desconto_percentual'] ?? '0.00') ?>">
-                    <div class="form-text">Aplica sobre o valor de venda.</div>
+                <div class="col-md-3">
+                    <label class="form-label">Entrega Óculos</label>
+                    <input type="text" name="data_entrega_oculos" class="form-control date-mask" placeholder="DD/MM/AAAA"
+                        value="<?= esc($ordem['data_entrega_oculos'] ?? '') ?>">
                 </div>
 
                 <!-- LINHA 3 -->
@@ -538,15 +563,20 @@ $placeholderLabel = $isLegacyVenda
                                 <th style="width:110px">Tipo</th>
                                 <th>Item</th>
                                 <th style="width:100px" class="text-end">Qtd</th>
-                                <th style="width:160px" class="text-end">Custo unit.</th>
-                                <th style="width:160px" class="text-end">Custo total</th>
+
+                                <?php if ($gerentePlus): ?>
+                                    <th style="width:160px" class="text-end">Custo unit.</th>
+                                    <th style="width:160px" class="text-end">Custo total</th>
+                                <?php endif; ?>
+
                                 <th style="width:120px"></th>
                             </tr>
                         </thead>
+
                         <tbody>
                             <?php if (empty($itens)): ?>
                                 <tr>
-                                    <td colspan="7" class="text-muted">Nenhum item adicionado.</td>
+                                    <td colspan="<?= $gerentePlus ? 7 : 5 ?>" class="text-muted">Nenhum item adicionado.</td>
                                 </tr>
                             <?php else: ?>
                                 <?php foreach ($itens as $i): ?>
@@ -585,8 +615,10 @@ $placeholderLabel = $isLegacyVenda
                                             </form>
                                         </td>
 
-                                        <td class="text-end">R$ <?= esc($fmt($pu)) ?></td>
-                                        <td class="text-end">R$ <?= esc($fmt($tot)) ?></td>
+                                        <?php if ($gerentePlus): ?>
+                                            <td class="text-end">R$ <?= esc($fmt($pu)) ?></td>
+                                            <td class="text-end">R$ <?= esc($fmt($tot)) ?></td>
+                                        <?php endif; ?>
 
                                         <td class="text-end">
                                             <form action="<?= site_url('ordens/' . $ordem['id'] . '/itens/' . $idItem) ?>"
@@ -978,6 +1010,7 @@ $placeholderLabel = $isLegacyVenda
         const $wrapServicoPreco = $('#wrapServicoPreco');
         const $wrapQtd = $('#wrapQtd');
         const $produtoMeta = $('#produtoMeta');
+        const canSeeCost = <?= json_encode($gerentePlus) ?>;
 
         function syncTipoUI() {
             const t = $tipo.val();
@@ -1026,10 +1059,10 @@ $placeholderLabel = $isLegacyVenda
                 return $(`
                     <div class="d-flex justify-content-between gap-2">
                         <div>
-                            <div class="fw-semibold">${item.text}</div>
-                            <div class="small text-muted">${cat}${saldo}</div>
+                        <div class="fw-semibold">${item.text}</div>
+                        <div class="small text-muted">${cat}${saldo}</div>
                         </div>
-                        <small class="text-muted">${fmtBRL(custo)}</small>
+                        ${canSeeCost ? `<small class="text-muted">${fmtBRL(custo)}</small>` : ``}
                     </div>
                 `);
             },
@@ -1041,7 +1074,11 @@ $placeholderLabel = $isLegacyVenda
             $('#preco_unitario_produto').val(String(custo));
 
             const saldo = (typeof d.qtd_atual !== 'undefined') ? `Saldo: ${d.qtd_atual}` : '';
-            $produtoMeta.html(`Custo puxado do estoque: <strong>${fmtBRL(custo)}</strong>${saldo ? ' • ' + saldo : ''}`);
+            if (canSeeCost) {
+                $produtoMeta.html(`Custo puxado do estoque: <strong>${fmtBRL(custo)}</strong>${saldo ? ' • ' + saldo : ''}`);
+            } else {
+                $produtoMeta.html(`${saldo ? saldo : 'Item selecionado.'}`);
+            }
         }).on('select2:clear', function() {
             $('#preco_unitario_produto').val('0');
             $produtoMeta.text('Selecione um item para puxar o custo automaticamente.');
@@ -1069,26 +1106,37 @@ $placeholderLabel = $isLegacyVenda
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const chk = document.getElementById('nota_gerada');
-        const wrap = document.getElementById('wrapDiaNota');
-        const inp = document.querySelector('input[name="dia_nota"]');
 
-        if (!chk || !wrap || !inp) return;
+        const wrapDia = document.getElementById('wrapDiaNota');
+        const inpDia = document.querySelector('input[name="dia_nota"]');
 
-        function syncDiaNota() {
+        const wrapNum = document.getElementById('wrapNumeroNota');
+        const inpNum = document.querySelector('input[name="numero_nota"]');
+
+        if (!chk || !wrapDia || !inpDia || !wrapNum || !inpNum) return;
+
+        function syncNotaFields() {
             const on = chk.checked;
 
-            // mantém o espaço, só “some” visualmente
-            wrap.classList.toggle('invisible', !on);
-            wrap.classList.toggle('pe-none', !on);
-            wrap.setAttribute('aria-hidden', on ? 'false' : 'true');
+            // Visibilidade (mantém o espaço)
+            [wrapDia, wrapNum].forEach(w => {
+                w.classList.toggle('invisible', !on);
+                w.classList.toggle('pe-none', !on);
+                w.setAttribute('aria-hidden', on ? 'false' : 'true');
+            });
 
-            // não deixa enviar valor escondido
-            inp.disabled = !on;
-            if (!on) inp.value = '';
+            // Enable/disable + limpeza quando desligar
+            inpDia.disabled = !on;
+            inpNum.disabled = !on;
+
+            if (!on) {
+                inpDia.value = '';
+                inpNum.value = '';
+            }
         }
 
-        chk.addEventListener('change', syncDiaNota);
-        syncDiaNota();
+        chk.addEventListener('change', syncNotaFields);
+        syncNotaFields();
     });
 </script>
 
