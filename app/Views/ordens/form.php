@@ -100,13 +100,31 @@ $isAdmin = (bool)($isAdmin ?? false);
 $isGerente = (bool)($isGerente ?? false);
 $isLegacyVenda = (bool)($isLegacyVenda ?? false);
 
-$canEditarVendedor      = $isGerente || $isAdmin;                   // só admin muda vínculo
-$mostrarIndicadorLegado = $isAdmin && $isLegacyVenda; // LEGADO só aparece pra admin
+$canEditarVendedor      = $isAdmin;
+$mostrarIndicadorLegado = $isLegacyVenda;
 
 // Sempre exibe algo no campo (pra qualquer perfil)
 $vendedorExibicao = (string)($ordem['vendedor_nome'] ?? $ordem['vendedor'] ?? '');
 $vendedorExibicao = trim($vendedorExibicao) !== '' ? $vendedorExibicao : '—';
 
+$vidAtual = (int)($ordem['vendedor_id'] ?? 0);
+
+$vendedorExibicao = (string)($ordem['vendedor_nome'] ?? $ordem['vendedor'] ?? '');
+$vendedorExibicao = trim($vendedorExibicao) !== '' ? $vendedorExibicao : ($vidAtual > 0 ? 'Usuário #' . $vidAtual : '—');
+
+$selVend = (string) old('vendedor_id', (string)($ordem['vendedor_id'] ?? ''));
+$selVend = ($selVend === '0') ? '' : $selVend;
+
+// Map pra saber se o vendedor atual está na lista
+$userIds = [];
+foreach (($users ?? []) as $u) {
+    $userIds[(string)$u['id']] = true;
+}
+
+// Placeholder coerente com o fluxo legado
+$placeholderLabel = $isLegacyVenda
+    ? 'LEGADO: ' . ($vendedorExibicao !== '—' ? $vendedorExibicao : 'N/I') . ' (sem vínculo)'
+    : '— Selecione —';
 ?>
 
 <?= $this->extend('layouts/main') ?>
@@ -199,51 +217,54 @@ $vendedorExibicao = trim($vendedorExibicao) !== '' ? $vendedorExibicao : '—';
                 </div>
 
                 <div class="col-md-2">
-                    
+
                 </div>
 
                 <!-- LINHA 2 (12 col) -->
-                <div class="col-md-2">
+                <div class="col-md-6">
                     <label class="form-label">
-                        Vendedor
+                        <?= $isLegacyVenda ? 'Atribuir vendedor' : 'Alterar vendedor' ?>
                         <?php if ($mostrarIndicadorLegado): ?>
                             <span class="badge text-bg-warning ms-1">LEGADO</span>
                         <?php endif; ?>
                     </label>
 
-                    <input type="text"
-                        class="form-control"
-                        value="<?= esc($vendedorExibicao) ?>"
-                        readonly>
+                    <select
+                        name="vendedor_id"
+                        id="vendedor_id"
+                        class="form-select"
+                        <?= $canEditarVendedor ? '' : 'disabled' ?>>
+                        <option value="" <?= $selVend === '' ? 'selected' : '' ?>>
+                            <?= esc($placeholderLabel) ?>
+                        </option>
 
-                    <?php if ($mostrarIndicadorLegado): ?>
-                        <div class="form-text text-warning">
-                            Venda legado: sem vínculo. Regularize selecionando um vendedor ao lado.
+                        <?php if ($selVend !== '' && empty($userIds[$selVend])): ?>
+                            <option value="<?= esc($selVend) ?>" selected>
+                                <?= esc($vendedorExibicao) ?> (fora da lista)
+                            </option>
+                        <?php endif; ?>
+
+                        <?php foreach (($users ?? []) as $u): ?>
+                            <option value="<?= (int)$u['id'] ?>" <?= $selVend === (string)$u['id'] ? 'selected' : '' ?>>
+                                <?= esc($u['name'] ?? ('Usuário #' . (int)$u['id'])) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+
+                    <?php if ($isLegacyVenda): ?>
+                        <div class="form-text <?= $isAdmin ? 'text-warning' : 'text-muted' ?>">
+                            <?= $isAdmin
+                                ? 'Venda legado: sem vínculo. Selecione um vendedor para regularizar.'
+                                : 'Venda legado: sem vínculo. Apenas administradores podem regularizar.' ?>
+                        </div>
+                    <?php else: ?>
+                        <div class="form-text">
+                            <?= $isAdmin
+                                ? 'Administradores podem atribuir/alterar o vendedor desta ordem.'
+                                : 'Somente administradores podem alterar o vendedor.' ?>
                         </div>
                     <?php endif; ?>
                 </div>
-
-                <?php if ($canEditarVendedor): ?>
-                    <div class="col-md-4">
-                        <label class="form-label">
-                            <?= $isLegacyVenda ? 'Atribuir vendedor' : 'Alterar vendedor' ?>
-                        </label>
-
-                        <?php $selVend = (string) old('vendedor_id', (string)($ordem['vendedor_id'] ?? '')); ?>
-                        <select name="vendedor_id" class="form-select">
-                            <option value="">— Selecione —</option>
-                            <?php foreach ($users as $u): ?>
-                                <option value="<?= (int)$u['id'] ?>" <?= $selVend === (string)$u['id'] ? 'selected' : '' ?>>
-                                    <?= esc($u['name'] ?? ('Usuário #' . (int)$u['id'])) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-
-                        <div class="form-text">
-                            Vincula a ordem a um usuário vendedor (o nome legado é preservado para auditoria).
-                        </div>
-                    </div>
-                <?php endif; ?>
 
                 <?php $notaGerada = (int) old('nota_gerada', (int)($ordem['nota_gerada'] ?? 0)); ?>
 

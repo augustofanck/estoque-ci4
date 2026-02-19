@@ -76,51 +76,64 @@ class Ordem extends BaseController
     {
         $isAdmin = $this->isAdmin();
         $uid     = $this->currentUserId();
-
-        // ADMIN pode atribuir vendedor_id
-        if ($isAdmin) {
-            $vid = $payload['vendedor_id'] ?? null;
-            if ($vid === '' || $vid === null) {
-                // se não veio, mantém o atual (update) ou assume o usuário logado (create)
-                $payload['vendedor_id'] = isset($ordemAtual['vendedor_id'])
-                    ? ($ordemAtual['vendedor_id'] ?: null)
-                    : ($uid > 0 ? $uid : null);
-            } else {
-                $payload['vendedor_id'] = (int) $vid;
-            }
-        } else {
-            // Não-admin NÃO escolhe vendedor: é sempre o usuário logado
-            unset($payload['vendedor_id']);
-            $payload['vendedor_id'] = $uid > 0 ? $uid : null;
-        }
+        $isUpdate = is_array($ordemAtual);
 
         /**
-         * Mantém o campo legado (ordens.vendedor) SEMPRE.
-         * - Se já existe (ordem antiga): NÃO mexe.
-         * - Se está vazio (ordem nova / tela nova): preenche com o nome do user vinculado,
-         *   para ter fallback caso no futuro perca vínculo.
+         * 1) Regras de vendedor_id
+         * - UPDATE: só admin pode alterar; não-admin não mexe.
+         * - CREATE: não-admin define como usuário logado; admin pode definir/alterar.
          */
+        if ($isAdmin) {
+            if (array_key_exists('vendedor_id', $payload)) {
+                $vid = $payload['vendedor_id'];
+
+                if ($vid === '' || $vid === null) {
+                    $payload['vendedor_id'] = null;
+                } else {
+                    $vid = (int) $vid;
+                    $payload['vendedor_id'] = $vid > 0 ? $vid : null;
+                }
+            } else {
+                $payload['vendedor_id'] = $isUpdate
+                    ? ($ordemAtual['vendedor_id'] ?? null)
+                    : ($uid > 0 ? $uid : null);
+            }
+        } else {
+            // Não-admin: UPDATE não altera vendedor_id (nem por acidente)
+            if ($isUpdate) {
+                unset($payload['vendedor_id']);
+            } else {
+                // Não-admin: CREATE define vendedor_id como usuário logado
+                $payload['vendedor_id'] = $uid > 0 ? $uid : null;
+            }
+        }
+
+        $finalVendedorId = array_key_exists('vendedor_id', $payload)
+            ? $payload['vendedor_id']
+            : ($ordemAtual['vendedor_id'] ?? null);
+
+        if (!empty($finalVendedorId)) {
+            $payload['vendedor'] = null;
+            return $payload;
+        }
+
         $legadoAtual = trim((string)($ordemAtual['vendedor'] ?? ''));
         $legadoNovo  = trim((string)($payload['vendedor'] ?? ''));
 
         if ($legadoAtual !== '') {
-            // Ordem antiga: mantém como está
             $payload['vendedor'] = $legadoAtual;
         } else {
-            // Ordem nova: se não veio legado, tenta preencher com o nome do usuário do vínculo
             if ($legadoNovo === '') {
-                $vid = (int)($payload['vendedor_id'] ?? 0);
-                $name = $this->getUserNameById($vid);
-                if ($name) $payload['vendedor'] = $name;
+                $payload['vendedor'] = null;
             }
         }
 
         return $payload;
     }
 
+
     private function moneyToFloat($v): float
     {
-        // reaproveita sua normalizeMoney() (que já é robusta)
         return (float) $this->normalizeMoney((string)$v);
     }
 
