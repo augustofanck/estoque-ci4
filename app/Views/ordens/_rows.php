@@ -1,7 +1,5 @@
 <?php if (!empty($ordens)): foreach ($ordens as $o): ?>
         <tr>
-            <td><?= esc($o['id']) ?></td>
-
             <!-- Data da compra -->
             <td>
                 <?php if (!empty($o['data_compra'])): ?>
@@ -14,8 +12,19 @@
             <td><?= esc($o['ordem_servico'] ?? '-') ?></td>
             <td><?= esc($o['cliente'] ?? '—') ?></td>
 
-            <!-- NOVO: Vendedor -->
-            <td><?= esc($o['vendedor'] ?? '—') ?></td>
+            <?php
+            $vendNome   = trim((string)($o['vendedor_exibicao'] ?? ''));
+            $isLegado   = (int)($o['vendedor_legado'] ?? 0) === 1;
+            $isVinculado = !empty($o['vendedor_id']);
+            ?>
+
+            <td>
+                <?php if (empty($o['vendedor_id'])): ?>
+                    <span class="badge text-bg-warning">Sem Vínculo</span>
+                <?php else: ?>
+                    <?= esc($o['vendedor_nome'] ?? $o['vendedor_exibicao'] ?? '—') ?>
+                <?php endif; ?>
+            </td>
 
             <?php
             $valorVenda = (float)($o['valor_venda'] ?? 0);

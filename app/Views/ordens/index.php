@@ -1,3 +1,8 @@
+<?php
+$users = $users ?? [];
+$selVendId = (string)($vendedor ?? '');
+?>
+
 <?= $this->extend('layouts/main') ?>
 <?= $this->section('content') ?>
 
@@ -18,9 +23,22 @@
             </div>
 
             <div class="col-md-4">
+                <!-- Input padrão (nome_cliente / ordem_servico) -->
                 <input id="q" type="text" class="form-control"
                     placeholder="Digite para filtrar..."
                     value="<?= esc($q ?? '') ?>">
+
+                <!-- Select de vendedores (field=vendedor) -->
+                <select id="vendedor_id" class="form-select d-none">
+                    <option value="" <?= $selVendId === '' ? 'selected' : '' ?>>— Todos os vendedores —</option>
+                    <option value="sem_vinculo" <?= $selVendId === 'sem_vinculo' ? 'selected' : '' ?>>Sem vínculo</option>
+
+                    <?php foreach ($users as $u): ?>
+                        <option value="<?= (int)$u['id'] ?>" <?= $selVendId === (string)$u['id'] ? 'selected' : '' ?>>
+                            <?= esc($u['name'] ?? ('Usuário #' . (int)$u['id'])) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
 
             <div class="col-md-2">
@@ -52,7 +70,6 @@
         <table class="table table-sm table-striped align-middle">
             <thead>
                 <tr>
-                    <th>#</th>
                     <th>Data compra</th>
                     <th>O.S.</th>
                     <th>Cliente</th>
@@ -78,6 +95,7 @@
     (function() {
         const qEl = document.getElementById('q');
         const fEl = document.getElementById('field');
+        const vSel = document.getElementById('vendedor_id');
         const dIni = document.getElementById('data_ini');
         const dFim = document.getElementById('data_fim');
         const btn = document.getElementById('btnApplyDate');
@@ -94,11 +112,32 @@
             };
         };
 
+        function syncFieldUI() {
+            const isVend = (fEl.value === 'vendedor');
+
+            // alterna input vs select
+            qEl.classList.toggle('d-none', isVend);
+            vSel.classList.toggle('d-none', !isVend);
+
+            // evita “lixo” de parâmetro quando muda pra vendedor
+            if (isVend) qEl.value = '';
+        }
+
         function buildParams(forceDate = false) {
             const params = new URLSearchParams({
-                q: qEl.value.trim(),
                 field: fEl.value
             });
+
+            if (fEl.value === 'vendedor') {
+                const vid = (vSel.value || '').trim();
+                if (vid !== '') params.set('vendedor', vid); // baseado em vendedor_id
+                // não envia q aqui
+            } else {
+                const q = qEl.value.trim();
+                if (q !== '') params.set('q', q);
+                // garante que não fique vendedor preso na URL
+                params.delete('vendedor');
+            }
 
             // inclui datas só quando clicar em Aplicar (ou se já estiver aplicado)
             if (forceDate || appliedDate) {
@@ -106,6 +145,7 @@
                 params.set('data_ini', dIni.value || '');
                 params.set('data_fim', dFim.value || '');
             }
+
             return params;
         }
 
@@ -121,16 +161,29 @@
             window.history.replaceState({}, '', url);
         }
 
-        // busca em tempo real para q/field; mantém datas se já aplicadas
         const run = debounce(() => fetchRows(buildParams(false)), 250);
-        qEl.addEventListener('input', run);
-        fEl.addEventListener('change', () => fetchRows(buildParams(false)));
 
-        // botão "Aplicar": ativa o filtro de data_compra
+        // eventos
+        qEl.addEventListener('input', () => {
+            if (fEl.value !== 'vendedor') run();
+        });
+
+        vSel.addEventListener('change', () => {
+            if (fEl.value === 'vendedor') fetchRows(buildParams(false));
+        });
+
+        fEl.addEventListener('change', () => {
+            syncFieldUI();
+            fetchRows(buildParams(false));
+        });
+
         btn.addEventListener('click', () => {
             appliedDate = true;
             fetchRows(buildParams(true));
         });
+
+        // init (carrega estado correto ao abrir página)
+        syncFieldUI();
     })();
 </script>
 

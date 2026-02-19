@@ -269,8 +269,19 @@ class Ordem extends BaseController
             ->select('(ordens.valor_venda - COALESCE(op.total_pago, 0)) AS saldo', false)
             ->select('COALESCE(op.qtd_pagamentos, 0) AS qtd_pagamentos', false)
             ->select('u.name AS vendedor_nome')
-            ->select('COALESCE(u.name, ordens.vendedor) AS vendedor_exibicao', false)
-            ->select('CASE WHEN ordens.vendedor_id IS NULL THEN 1 ELSE 0 END AS vendedor_legado', false)
+            ->select("
+                COALESCE(
+                    u.name,
+                    ordens.vendedor,
+                    CASE WHEN ordens.vendedor_id IS NOT NULL THEN CONCAT('Usuário #', ordens.vendedor_id) END
+                ) AS vendedor_exibicao
+            ", false)
+            ->select("
+                CASE
+                    WHEN ordens.vendedor_id IS NULL AND COALESCE(TRIM(ordens.vendedor), '') <> '' THEN 1
+                    ELSE 0
+                END AS vendedor_legado
+            ", false)
             ->join('clientes c', 'c.id = ordens.cliente_id', 'left')
             ->join($pagAgg, 'op.ordem_id = ordens.id', 'left', false)
             ->join('users u', 'u.id = ordens.vendedor_id', 'left')
@@ -283,22 +294,22 @@ class Ordem extends BaseController
             } elseif ($field === 'ordem_servico') {
                 $builder->like('ordens.ordem_servico', $q);
             } elseif ($field === 'vendedor') {
-                // busca pelo nome do user OU pelo legado
-                $builder->like('COALESCE(u.name, ordens.vendedor)', $q, 'both', null, false);
+                if ($q === 'sem_vinculo') {
+                    $builder->where('ordens.vendedor_id IS NULL', null, false);
+                } elseif (ctype_digit($q)) {
+                    $builder->where('ordens.vendedor_id', (int)$q);
+                }
             } else {
                 $builder->like('c.nome', $q);
             }
         }
 
         if ($vendedor !== '') {
-            // filtro por vendedor: aceita ID numérico OU nome (user/legado)
-            if (ctype_digit($vendedor)) {
+            // filtro por vendedor: ID numérico OU "sem_vinculo"
+            if ($vendedor === 'sem_vinculo') {
+                $builder->where('ordens.vendedor_id IS NULL', null, false);
+            } elseif (ctype_digit($vendedor)) {
                 $builder->where('ordens.vendedor_id', (int)$vendedor);
-            } else {
-                $builder->groupStart()
-                    ->where('u.name', $vendedor)
-                    ->orWhere('ordens.vendedor', $vendedor)
-                    ->groupEnd();
             }
         }
 
@@ -319,6 +330,8 @@ class Ordem extends BaseController
             return view('ordens/_rows', ['ordens' => $ordens]);
         }
 
+        $users = $this->getActiveUsers();
+
         return view('ordens/index', [
             'title'       => 'Ordens / Estoque',
             'ordens'      => $ordens,
@@ -328,6 +341,7 @@ class Ordem extends BaseController
             'data_ini'    => $dataIni ?: '',
             'data_fim'    => $dataFim ?: '',
             'apply_date'  => $applyDate ? '1' : '0',
+            'users'       => $users,
         ]);
     }
 
