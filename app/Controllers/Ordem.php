@@ -392,6 +392,10 @@ class Ordem extends BaseController
             'lente_1_item_id'   => null,
             'armacao_2_item_id' => null,
             'lente_2_item_id'   => null,
+            'consulta'               => old('consulta') ?: 0.00,
+            'pagamento_laboratorio'  => old('pagamento_laboratorio') ?: 0.00,
+            'nota_gerada'            => old('nota_gerada') ? 1 : 0,
+            'dia_nota'               => old('dia_nota') ?: '',
         ];
 
         $itens = [];

@@ -157,7 +157,9 @@ $vendedorExibicao = trim($vendedorExibicao) !== '' ? $vendedorExibicao : '—';
                     </div>
                 </div>
 
-                <div class="col-md-2">
+
+                <!-- Status WIP -->
+                <!-- <div class="col-md-2">
                     <label class="form-label">Status</label>
                     <select name="status" class="form-select">
                         <?php $st = (string)($ordem['status'] ?? 'aberta'); ?>
@@ -167,7 +169,7 @@ $vendedorExibicao = trim($vendedorExibicao) !== '' ? $vendedorExibicao : '—';
                             </option>
                         <?php endforeach; ?>
                     </select>
-                </div>
+                </div> -->
 
                 <div class="col-md-2">
                     <label class="form-label">Data compra</label>
@@ -194,6 +196,10 @@ $vendedorExibicao = trim($vendedorExibicao) !== '' ? $vendedorExibicao : '—';
                             <?php endif; ?>
                         </label>
                     </div>
+                </div>
+
+                <div class="col-md-2">
+                    
                 </div>
 
                 <!-- LINHA 2 (12 col) -->
@@ -265,7 +271,7 @@ $vendedorExibicao = trim($vendedorExibicao) !== '' ? $vendedorExibicao : '—';
                     <div class="input-group">
                         <span class="input-group-text">R$</span>
                         <input type="text" name="consulta" class="form-control" inputmode="decimal" placeholder="0,00"
-                            value="<?= esc(old('consulta', $fmt($ordem['consulta']) ?? '')) ?>">
+                            value="<?= esc(old('consulta', $fmt($ordem['consulta'] ?? 0))) ?>">
                     </div>
                 </div>
 
@@ -273,7 +279,7 @@ $vendedorExibicao = trim($vendedorExibicao) !== '' ? $vendedorExibicao : '—';
                     <label class="form-label">Valor do laboratório</label>
                     <div class="input-group">
                         <span class="input-group-text">R$</span>
-                        <input type="text" name="pagamento_laboratorio" class="form-control" inputmode="decimal" placeholder="0,00" value="<?= esc(old('pagamento_laboratorio', $fmt($ordem['pagamento_laboratorio']) ?? '')) ?>">
+                        <input type="text" name="pagamento_laboratorio" class="form-control" inputmode="decimal" placeholder="0,00" value="<?= esc(old('pagamento_laboratorio', $fmt($ordem['pagamento_laboratorio'] ?? 0))) ?>">
                     </div>
                 </div>
 
