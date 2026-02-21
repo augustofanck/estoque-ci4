@@ -47,10 +47,9 @@ foreach ($itens as $i) {
     $custoSubtotal += $tot;
 }
 
-$valorLab     = (float)($ordem['pagamento_laboratorio'] ?? 0);
 $valorConsulta = (float)($ordem['consulta'] ?? 0);
 
-$custoSubtotal += $valorLab + $valorConsulta;
+$custoSubtotal += $valorConsulta;
 
 $descontoPercent = (float)($ordem['desconto_percentual'] ?? 0);
 $descontoPercent = max(0, min(100, $descontoPercent));
