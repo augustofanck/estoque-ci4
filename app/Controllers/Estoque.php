@@ -176,7 +176,6 @@ class Estoque extends BaseController
             'codigo',
             'tipo_id',
             'titulo',
-            'categoria',
             'atributos',
             'qtd_minima',
             'ativo',
