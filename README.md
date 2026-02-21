@@ -1,195 +1,130 @@
-# Óticas Lumina (CodeIgniter 4)
+# Óticas Lumina — Gestão Operacional (Ordens, Estoque e Caixa)
 
-Sistema para gestão de ordens, clientes e indicadores.
+Aplicação web construída em **CodeIgniter 4** para apoiar a operação de uma ótica no dia a dia: **vendas/ordens**, **itens**, **pagamentos**, **estoque**, **clientes**, **usuários** e **relatórios** — com controle de acesso por perfil.
 
----
-
-## 1) Visão geral
-
-- **Dashboard** com 5 KPIs:
-  1. Ordens no período (`data_compra` dentro do range)
-  2. Faturamento do mês (`SUM(valor_venda)`)
-  3. Valor pago do mês (`SUM(valor_pago)`)
-  4. Imposto (7% sobre faturamento do mês)
-  5. Lucro = **valor_pago – imposto – custo_mensal**
-- **Custo de operação** mensal (últimos 6 meses): soma de
-  `valor_armacao_1`, `valor_armacao_2`, `valor_lente_1`, `valor_lente_2`, **`consulta` (DECIMAL 10,2)**.
-- **Ordens** com busca em tempo real por `nome_cliente`, `ordem_servico` e **`vendedor`**.
-- **Clientes** CRUD.
-- UI com **Bootstrap 5**.
+> **Nota (confidencialidade):** este repositório público descreve funcionalidades e visão geral. Detalhes internos (rotas, estrutura de banco, regras sensíveis, chaves, endpoints e padrões de integração) ficam fora do README por segurança e por boas práticas.
 
 ---
 
-## 2) Setores do sistema
+## O que este sistema resolve (na prática)
 
-### 2.1 Dashboard
-- Controller: `app/Controllers/Dashboard.php`
-- KPIs e custos calculados por mês atual.
-- Lista “Últimas ordens”.
+Em operação real, o caos costuma nascer em três lugares:
 
-### 2.2 Ordens
-- Controller: `app/Controllers/Ordem.php`
-- Filtros:
-  - `field` ∈ {`nome_cliente`, `ordem_servico`, `vendedor`}
-  - `q` texto livre
-  - `vendedor` opcional como filtro dedicado (além de `field+q`)
-- Views:
-  - `app/Views/ordens/index.php` (tabela + filtros)
-  - `app/Views/ordens/_rows.php` (linhas; inclui coluna **Vendedor** entre “Cliente” e “Valor venda”)
+1. vendas sem previsibilidade,
+2. estoque sem controle,
+3. caixa que não fecha com o que foi vendido.
 
-### 2.3 Clientes
-- Controller: `app/Controllers/Clientes.php` (CRUD básico)
-- Views em `app/Views/clientes/`
+Este sistema foi desenhado para centralizar isso em um fluxo simples:
 
-### 2.4 Layout/Navegação
-- Layout base: `app/Views/layouts/main.php`
-- Sidebar e offcanvas; conteúdo em `<main>`.
+- registrar a venda (ordem),
+- compor itens (produtos/serviços),
+- controlar pagamentos (parciais ou múltiplos),
+- acompanhar saldo,
+- apoiar o financeiro com relatórios e indicadores.
 
 ---
 
-## 3) Requisitos
+## Principais módulos e funcionalidades
 
-- PHP 8.1+
-- Extensões: `intl`, `mbstring`, `json`, `mysqli` ou `pdo_mysql`
-- Composer
-- MySQL/MariaDB
+### Dashboard (visão executiva)
 
----
+- Indicadores consolidados por período (ex.: dia anterior / mês corrente)
+- Acompanhamento de **faturamento**, **recebimentos**, **pendências** e **resumo operacional**
+- Listagem rápida das últimas movimentações/ordens para conferência
 
-## 4) Instalação
+### Ordens (vendas / OS)
 
-```bash
-git clone https://github.com/SEUUSUARIO/SEUREPO.git
-cd SEUREPO
-composer install
-cp .env.example .env
-```
+- Criação e edição de ordens com vínculo de cliente
+- Suporte a fluxo de venda com **itens** (ex.: armação, lente, serviços)
+- Cálculo de totais e saldo com base em itens e pagamentos
+- Campos operacionais típicos de ótica (ex.: status, observações, controle de entrega/retirada)
+- Compatibilidade com cenários “legados” onde o vendedor pode ser textual, além do usuário do sistema
 
-Edite `.env`:
+### Itens da Ordem
 
-```ini
-app.baseURL = 'http://localhost:8080/'
+- Itens do tipo **produto** (integrados ao estoque)
+- Itens do tipo **serviço** (descrição e valores)
+- Totalização por item e total geral da ordem
+- Estrutura preparada para permitir auditoria/controle de alterações (quando habilitado)
 
-database.default.hostname = 127.0.0.1
-database.default.database = lumina
-database.default.username = root
-database.default.password = ''
-database.default.DBDriver = MySQLi
-database.default.charset  = utf8mb4
-```
+### Pagamentos (caixa)
 
-Permissões (Linux/Mac):
-```bash
-chmod -R 0777 writable
-```
+- Múltiplos pagamentos por ordem (parciais/parcelados)
+- Conciliação simples: vendido × recebido × saldo
+- Regras de acesso para ações sensíveis (ex.: remoção/ajustes)
 
----
+### Clientes
 
-## 5) Banco de dados
+- Cadastro e gerenciamento de clientes
+- Busca/filtro para facilitar atendimento e recorrência
+- Normalização de campos comuns (documentos, telefone, etc.), mantendo o dado “limpo” para relatórios
 
-### 5.1 Colunas esperadas em `ordens`
-- Identificação e datas:
-  - `id` (PK), `data_compra` (DATETIME), `data_entrega_oculos` (DATE), `deleted_at` (nullable)
-- Cliente e OS:
-  - `ordem_servico` (VARCHAR), `nome_cliente` (VARCHAR), **`vendedor` (VARCHAR)**
-- Valores:
-  - `valor_venda` DECIMAL(10,2), `valor_pago` DECIMAL(10,2)
-  - `valor_armacao_1` DECIMAL(10,2), `valor_armacao_2` DECIMAL(10,2)
-  - `valor_lente_1` DECIMAL(10,2), `valor_lente_2` DECIMAL(10,2)
-  - **`consulta` DECIMAL(10,2)**, `pagamento_laboratorio` DECIMAL(10,2)
-- Flags:
-  - `nota_gerada` TINYINT(1)
+### Estoque
 
-### 5.2 Ajustes rápidos
-Adicionar **vendedor** (se faltar):
-```sql
-ALTER TABLE ordens ADD COLUMN vendedor VARCHAR(100) NULL AFTER nome_cliente;
-CREATE INDEX idx_ordens_vendedor ON ordens (vendedor);
-```
+- Cadastro de itens com identificação e informações essenciais
+- Controle de disponibilidade e referência de preços
+- Integração com a rotina de vendas (seleção de produtos ao montar a ordem)
 
-Garantir **consulta** decimal:
-```sql
-ALTER TABLE ordens MODIFY COLUMN consulta DECIMAL(10,2) NULL;
-```
+### Relatórios
+
+- Relatórios operacionais e financeiros para conferência
+- Visão consolidada de vendas e recebimentos por período
+- Exportação/impressão (quando habilitado conforme layout do sistema)
 
 ---
 
-## 6) Executar
+## Perfis de acesso (controle por função)
 
-```bash
-php spark serve
-# http://localhost:8080
-```
+O sistema trabalha com papéis para proteger ações sensíveis:
 
----
+- **Vendedor**: foco em operação (criar/editar ordens, lançar itens e pagamentos, consultar dados necessários).
+- **Gerente**: visão ampliada (estoque, relatórios e recursos adicionais de conferência).
+- **Admin**: gestão completa (usuários, ajustes avançados e operações críticas).
 
-## 7) Uso dos filtros (Ordens)
-
-- Por campo + texto:
-  ```
-  /ordens?field=vendedor&q=Maria
-  /ordens?field=nome_cliente&q=Silva
-  ```
-- Filtro dedicado de vendedor:
-  ```
-  /ordens?vendedor=Joao
-  ```
-
-Na view `ordens/index.php`, o JS envia `q`, `field` e `vendedor` (se existir o input).
-No controller, ambos funcionam: `like($field, $q)` e `like('vendedor', $vendedor)`.
+> Observação: o nível exato de permissões pode variar conforme o ambiente, porque algumas restrições são definidas por configuração e política interna.
 
 ---
 
-## 8) Versionamento (Git/GitHub)
+## Tecnologia (em alto nível)
 
-`.gitignore` sugerido:
-```
-/vendor/
-/writable/*
-!/writable/index.html
-/public/uploads/*
-!/public/uploads/.gitkeep
-.env
-/.env.*
-/*.local.php
-/.idea/
-/.vscode/
-/node_modules/
-```
-
-Fluxo:
-```bash
-git init
-git add -A
-git commit -m "chore: initial import"
-
-git branch -M main
-git remote add origin https://github.com/SEUUSUARIO/SEUREPO.git
-git push -u origin main
-```
-
-Erros comuns de push:
-- Se o remoto já tem commits:
-  ```bash
-  git pull origin main --allow-unrelated-histories
-  git push -u origin main
-  ```
-- Para sobrescrever:
-  ```bash
-  git push -u origin main --force
-  ```
+- **Backend:** PHP + CodeIgniter 4
+- **Banco de dados:** MySQL/MariaDB (camada de models)
+- **Frontend:** Bootstrap (layout), componentes JS conforme necessidade
+- **Autenticação:** sessão para área web; suporte opcional a **JWT** para integrações/API (se habilitado)
 
 ---
 
-## 9) Deploy
+## Como rodar localmente (visão rápida)
 
-- `DocumentRoot` apontando para `public/`.
-- `.env`:
-  ```ini
-  app.env = production
-  app.debug = false
-  ```
-- Permissões em `writable/`.
-- `baseURL` com o domínio final.
+> Este guia é propositalmente “alto nível” para não expor detalhes sensíveis.  
+> Se você faz parte do time e precisa do setup completo, use a documentação interna / checklist do projeto.
+
+1. Clone o repositório e instale dependências via **Composer**
+2. Configure o ambiente (arquivo `.env`) com os parâmetros do seu servidor
+3. Aponte seu servidor web para o projeto (Apache/Nginx)
+4. Garanta permissões de escrita na pasta de runtime do framework
+5. Execute em modo desenvolvimento e valide o login
 
 ---
+
+## Boas práticas e segurança
+
+- **Nunca** versione credenciais, chaves, tokens ou dumps reais no repositório
+- Use variáveis de ambiente (`.env`) e segredos gerenciados no servidor
+- Mantenha logs e auditoria habilitados no ambiente de produção
+- Evite expor relatórios detalhados publicamente (especialmente financeiros)
+
+---
+
+## Roadmap (ideias de evolução)
+
+- Migrações e seeders para padronizar a instalação
+- Melhorias em auditoria de alterações e histórico de operações
+- Padronização de relatórios e exportações
+- Endpoints de integração (API) formalizados com controle de escopo
+
+---
+
+## Licença
+
+[MIT License](https://github.com/augustofanck/estoque-ci4?tab=MIT-1-ov-file#)
