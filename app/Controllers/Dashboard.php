@@ -15,6 +15,10 @@ class Dashboard extends BaseController
 
         $db = \Config\Database::connect();
 
+        // ---------- constantes ----------
+        $ALIQUOTA_IMPOSTO = 0.0749; // 7,49%
+        $TAXA_OPERADORA   = 0.90;   // mantém a lógica anterior (10% “desconto/taxa” sobre o recebido)
+
         // ---------- helpers ----------
         $notDeleted = function (\CodeIgniter\Database\BaseBuilder $b, string $alias) {
             $b->groupStart()
@@ -30,27 +34,50 @@ class Dashboard extends BaseController
             }
         };
 
+        $mesLabelPt = function (string $anoMes): string {
+            // $anoMes = YYYY-MM
+            $meses = [
+                1 => 'janeiro',
+                2 => 'fevereiro',
+                3 => 'março',
+                4 => 'abril',
+                5 => 'maio',
+                6 => 'junho',
+                7 => 'julho',
+                8 => 'agosto',
+                9 => 'setembro',
+                10 => 'outubro',
+                11 => 'novembro',
+                12 => 'dezembro',
+            ];
+            $y = (int) substr($anoMes, 0, 4);
+            $m = (int) substr($anoMes, 5, 2);
+            $nome = $meses[$m] ?? 'mês';
+            return ucfirst($nome . ' de ' . $y);
+        };
+
         // ---------- períodos ----------
-        $ontemDate = (new \DateTime('yesterday'))->format('Y-m-d');
+        $ontemDate  = (new \DateTime('yesterday'))->format('Y-m-d');
         $iniOntemDt = $ontemDate . ' 00:00:00';
         $fimOntemDt = $ontemDate . ' 23:59:59';
 
         if ($kpiScope === 'dia') {
             $labelPeriodo = 'Ontem';
-            $iniOrdDate = $ontemDate;
-            $fimOrdDate = $ontemDate;
+            $iniOrdDate   = $ontemDate;
+            $fimOrdDate   = $ontemDate;
 
+            // mantido (pode ser útil no futuro), mas agora não filtramos mais "recebido" por data_pagamento
             $iniPayDt = $iniOntemDt;
             $fimPayDt = $fimOntemDt;
         } else {
             // mês selecionado ou mês atual
             if (!empty($mesFiltro)) {
-                $iniOrdDate = date('Y-m-01', strtotime($mesFiltro . '-01'));
-                $fimOrdDate = date('Y-m-t',  strtotime($mesFiltro . '-01'));
-                $labelPeriodo = ucfirst(strftime('%B de %Y', strtotime($mesFiltro . '-01')));
+                $iniOrdDate   = date('Y-m-01', strtotime($mesFiltro . '-01'));
+                $fimOrdDate   = date('Y-m-t',  strtotime($mesFiltro . '-01'));
+                $labelPeriodo = $mesLabelPt($mesFiltro);
             } else {
-                $iniOrdDate = date('Y-m-01');
-                $fimOrdDate = date('Y-m-t');
+                $iniOrdDate   = date('Y-m-01');
+                $fimOrdDate   = date('Y-m-t');
                 $labelPeriodo = 'Mês atual';
             }
 
@@ -82,19 +109,21 @@ class Dashboard extends BaseController
         $consultas   = (float)($rowOrd['consultas'] ?? 0);
         $custoItens  = (float)($rowOrd['custo_itens'] ?? 0);
 
-        // ---------- KPIs (PAGAMENTOS / CAIXA) ----------
+        // ---------- KPIs (PAGAMENTOS / RECEBIDO DAS ORDENS DO PERÍODO) ----------
+        // Importante: agora o "recebido" é o total pago (confirmado) das ordens do período,
+        // independentemente da data do pagamento. Isso evita divergência com "saldo em aberto".
         $bPay = $db->table('ordens_pagamento p')
             ->select("COALESCE(SUM(p.valor),0) AS recebido", false)
             ->join('ordens o', 'o.id = p.ordem_id', 'inner');
 
         $bPay->where('p.status', 'confirmado');
-        $bPay->where('p.data_pagamento >=', $iniPayDt)->where('p.data_pagamento <=', $fimPayDt);
+        $bPay->where('o.data_compra >=', $iniOrdDate)->where('o.data_compra <=', $fimOrdDate);
 
         $applyStatus($bPay, 'o');
         $notDeleted($bPay, 'p');
         $notDeleted($bPay, 'o');
 
-        $rowPay = $bPay->get()->getRowArray() ?: [];
+        $rowPay  = $bPay->get()->getRowArray() ?: [];
         $recebido = (float)($rowPay['recebido'] ?? 0);
 
         // ---------- SALDO EM ABERTO (ordens do período) ----------
@@ -119,15 +148,22 @@ class Dashboard extends BaseController
         $applyStatus($bSaldo, 'o');
         $notDeleted($bSaldo, 'o');
 
-        $rowSaldo = $bSaldo->get()->getRowArray() ?: [];
+        $rowSaldo    = $bSaldo->get()->getRowArray() ?: [];
         $saldoAberto = (float)($rowSaldo['saldo_aberto'] ?? 0);
 
         // ---------- IMPOSTO / LUCRO ----------
-        $imposto = $fat * 0.07;
+        $imposto = $fat * $ALIQUOTA_IMPOSTO;
 
-        // Mantive a lógica “parecida” com a antiga (que usava valor_pago)
-        // Só que agora "recebido" vem da tabela de pagamentos no período.
-        $lucro = ($recebido * 0.9) - $imposto - $consultas - $custoItens;
+        // arredondamento para evitar floats “quebrados” na view
+        $fat        = round($fat, 2);
+        $consultas  = round($consultas, 2);
+        $custoItens = round($custoItens, 2);
+        $recebido   = round($recebido, 2);
+        $saldoAberto = round($saldoAberto, 2);
+        $imposto    = round($imposto, 2);
+
+        $lucro = ($recebido * $TAXA_OPERADORA) - $imposto - $consultas - $custoItens;
+        $lucro = round($lucro, 2);
         $lucroClass = $lucro >= 0 ? 'text-success' : 'text-danger';
 
         // ---------- CUSTO DO DIA ANTERIOR (sempre ontem, para o rodapé) ----------
@@ -143,14 +179,13 @@ class Dashboard extends BaseController
         $bCustoOntem->where('o.data_compra', $ontemDate);
         $applyStatus($bCustoOntem, 'o');
         $notDeleted($bCustoOntem, 'o');
+
         $custoOntem = (float)(($bCustoOntem->get()->getRowArray()['custo_ontem'] ?? 0));
+        $custoOntem = round($custoOntem, 2);
 
         // ---------- Últimos 14 dias (agregado, sem 300 queries) ----------
         $fim14Date = date('Y-m-d');
         $ini14Date = date('Y-m-d', strtotime('-13 days'));
-
-        $ini14PayDt = $ini14Date . ' 00:00:00';
-        $fim14PayDt = $fim14Date . ' 23:59:59';
 
         // ordens agrupadas por data_compra (DATE)
         $bOrd14 = $db->table('ordens o')->select("
@@ -176,18 +211,19 @@ class Dashboard extends BaseController
             $mapOrd[$r['data']] = $r;
         }
 
-        // pagamentos agrupados por DATE(data_pagamento)
+        // pagamentos confirmados agrupados por data_compra da ordem (ordens dos últimos 14 dias)
         $bPay14 = $db->table('ordens_pagamento p')->select("
-            DATE(p.data_pagamento) AS data,
+            o.data_compra AS data,
             COALESCE(SUM(p.valor),0) AS recebido
         ", false)->join('ordens o', 'o.id = p.ordem_id', 'inner');
 
         $bPay14->where('p.status', 'confirmado');
-        $bPay14->where('p.data_pagamento >=', $ini14PayDt)->where('p.data_pagamento <=', $fim14PayDt);
+        $bPay14->where('o.data_compra >=', $ini14Date)->where('o.data_compra <=', $fim14Date);
+
         $applyStatus($bPay14, 'o');
         $notDeleted($bPay14, 'p');
         $notDeleted($bPay14, 'o');
-        $bPay14->groupBy('DATE(p.data_pagamento)');
+        $bPay14->groupBy('o.data_compra');
 
         $mapPay = [];
         foreach ($bPay14->get()->getResultArray() as $r) {
@@ -209,15 +245,22 @@ class Dashboard extends BaseController
 
             $recD = (float)($payRow['recebido'] ?? 0);
 
-            $impD = $fatD * 0.07;
-            $lucD = ($recD * 0.9) - $impD - $conD - $cusD;
+            // arredonda para evitar “quebra” na view
+            $fatD = round($fatD, 2);
+            $conD = round($conD, 2);
+            $cusD = round($cusD, 2);
+            $recD = round($recD, 2);
+
+            $impD = round($fatD * $ALIQUOTA_IMPOSTO, 2);
+            $lucD = ($recD * $TAXA_OPERADORA) - $impD - $conD - $cusD;
+            $lucD = round($lucD, 2);
 
             $diasLista[] = [
                 'data_iso'    => $d,
                 'label'       => date('d/m', strtotime($d)),
                 'ordens'      => $ord,
                 'faturamento' => $fatD,
-                'valor_pago'  => $recD, // mantém chave antiga p/ view (agora é "recebido")
+                'valor_pago'  => $recD, // mantém chave antiga p/ view (agora é total recebido das ordens do dia)
                 'imposto'     => $impD,
                 'consultas'   => $conD,
                 'custo'       => $cusD,
@@ -233,7 +276,9 @@ class Dashboard extends BaseController
             ->limit(8);
 
         $notDeleted($bUlt, 'o');
+        // se sua tabela clientes não tiver deleted_at, remova a linha abaixo
         $notDeleted($bUlt, 'c');
+
         $ultimasOrdens = $bUlt->get()->getResultArray();
 
         $role = role_level();
@@ -250,7 +295,7 @@ class Dashboard extends BaseController
                 'periodo_label'        => $labelPeriodo,
                 'ordens_total'         => $ordensTotal,
                 'faturamento_estimado' => $fat,
-                'valor_pago'           => $recebido, // agora é recebido (caixa)
+                'valor_pago'           => $recebido, // total recebido (confirmado) das ordens do período
                 'saldo_aberto'         => $saldoAberto,
                 'valor_imposto'        => $imposto,
                 'valor_consultas'      => $consultas,

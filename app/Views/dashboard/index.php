@@ -175,7 +175,7 @@ $imposto     = (float)($stats['valor_imposto'] ?? 0);
         <div class="col-sm-6 col-lg-3">
             <div class="card shadow-sm border-0 h-100">
                 <div class="card-body text-center">
-                    <div class="text-muted small">Imposto (7%)</div>
+                    <div class="text-muted small">Imposto (7,49%)</div>
                     <div class="h4 fw-bold text-danger">
                         R$ <?= number_format($imposto, 2, ',', '.') ?>
                     </div>
