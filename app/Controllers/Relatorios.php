@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Controllers\BaseController;
 use Config\Database;
+use DateTime;
 
 class Relatorios extends BaseController
 {
@@ -56,18 +57,26 @@ class Relatorios extends BaseController
                 ];
             }
 
-            $valor  = (float)($r['pagamento_valor'] ?? 0);
-            $forma  = trim((string)($r['pagamento_forma'] ?? ''));
-            $origem = (string)($r['pagamento_origem'] ?? 'sistema');
-            $tipo   = (string)($r['pagamento_tipo'] ?? '');
+            $valor   = (float)($r['pagamento_valor'] ?? 0);
+            $forma   = trim((string)($r['pagamento_forma'] ?? ''));
+            $origem  = (string)($r['pagamento_origem'] ?? 'sistema');
+            $tipo    = (string)($r['pagamento_tipo'] ?? '');
+            $pgtData = (string)($r['pagamento_data'] ?? '');
+
+            $pgtDataFormatada = '';
+            if ($pgtData !== '' && $pgtData !== '0000-00-00 00:00:00') {
+                $dataObj = DateTime::createFromFormat('Y-m-d H:i:s', $pgtData);
+                $pgtDataFormatada = $dataObj ? $dataObj->format('d/m/Y') : $pgtData;
+            }
 
             if ($valor > 0 || $forma !== '') {
                 $orders[$id]['_pagamentos'][] = sprintf(
-                    '[%s/%s] %s: R$ %s',
+                    '[%s/%s] %s: R$ %s%s',
                     strtoupper($origem),
                     strtoupper($tipo),
                     ($forma !== '' ? $forma : 'FORMA N/I'),
-                    number_format($valor, 2, ',', '.')
+                    number_format($valor, 2, ',', '.'),
+                    $pgtDataFormatada !== '' ? ' | Data: ' . $pgtDataFormatada : ''
                 );
             }
         }
