@@ -179,37 +179,6 @@ class Ordem extends BaseController
         return $payload;
     }
 
-    private function syncSegundoParRefs(int $ordemId): void
-    {
-        $rows = $this->ordemItemModel
-            ->select('ordens_itens.produto_id, ei.categoria')
-            ->join('estoque_itens ei', 'ei.id = ordens_itens.produto_id', 'left')
-            ->where('ordens_itens.ordem_id', $ordemId)
-            ->where('ordens_itens.tipo', 'produto')
-            ->where('ordens_itens.produto_id IS NOT NULL', null, false)
-            ->orderBy('ordens_itens.id', 'ASC')
-            ->findAll();
-
-        $armacoes = [];
-        $lentes   = [];
-
-        foreach ($rows as $r) {
-            $pid = (int) ($r['produto_id'] ?? 0);
-            $cat = (string) ($r['categoria'] ?? '');
-            if ($pid <= 0) continue;
-
-            if ($cat === 'armacao') $armacoes[] = $pid;
-            if ($cat === 'lente')   $lentes[]   = $pid;
-        }
-
-        $this->model->update($ordemId, [
-            'armacao_1_item_id' => $armacoes[0] ?? null,
-            'armacao_2_item_id' => $armacoes[1] ?? null,
-            'lente_1_item_id'   => $lentes[0]   ?? null,
-            'lente_2_item_id'   => $lentes[1]   ?? null,
-        ]);
-    }
-
     private function recalcularTotaisOrdem(int $ordemId): array
     {
         $ordem = $this->model->find($ordemId);
@@ -356,8 +325,6 @@ class Ordem extends BaseController
         $payload['valor_lente_2']     = null;
         $payload['tipo_lente_1']      = $payload['tipo_lente_1'] ?? null; // legado
         $payload['tipo_lente_2']      = null; // legado
-        $payload['promocao_segundo_par'] = (($payload['promocao_segundo_par'] ?? '0') === '1') ? 1 : 0;
-
         // Regras de vendedor (vendedor_id + preserva vendedor legado)
         $payload = $this->applyVendedorRulesForSave($payload, null);
 
@@ -412,13 +379,10 @@ class Ordem extends BaseController
             'vendedor' => old('vendedor') ?: '',
             'vendedor_id' => old('vendedor_id') ?: ($this->currentUserId() ?: null),
             'desconto_percentual' => old('desconto_percentual') ?: '0.00',
-            'promocao_segundo_par' => old('promocao_segundo_par') ? 1 : 0,
             'obs' => old('obs') ?: '',
             'valor_venda' => 0.00,
             'armacao_1_item_id' => null,
             'lente_1_item_id'   => null,
-            'armacao_2_item_id' => null,
-            'lente_2_item_id'   => null,
             'consulta'               => old('consulta') ?: 0.00,
             'pagamento_laboratorio'  => old('pagamento_laboratorio') ?: 0.00,
             'nota_gerada'            => old('nota_gerada') ? 1 : 0,
@@ -487,7 +451,6 @@ class Ordem extends BaseController
             ->findAll();
 
         $totais = $this->recalcularTotaisOrdem((int)$id);
-        $this->syncSegundoParRefs((int)$id);
 
         $totalPago = 0.0;
         foreach ($pagamentos as $p) {
@@ -546,8 +509,6 @@ class Ordem extends BaseController
         // total vem dos itens (não aceitar edição manual)
         unset($payload['valor_armacao_1'], $payload['valor_armacao_2'], $payload['valor_lente_1'], $payload['valor_lente_2']);
 
-        $payload['promocao_segundo_par'] = (($payload['promocao_segundo_par'] ?? '0') === '1') ? 1 : 0;
-
         // Regras de vendedor:
         // - mantém legado em ordens.vendedor
         // - admin pode atribuir vendedor_id
@@ -585,6 +546,31 @@ class Ordem extends BaseController
         }
 
         return redirect()->to(site_url('ordens/' . $id . '/edit'))->with('msg', 'Registro atualizado com sucesso!');
+    }
+
+    public function delete($id)
+    {
+        $id = (int) $id;
+        $ordem = $this->model->find($id);
+
+        if (!$ordem) {
+            return redirect()->to(site_url('ordens'))->with('errors', ['Registro não encontrado.']);
+        }
+
+        $db = \Config\Database::connect();
+        $db->transStart();
+
+        $this->ordemItemModel->where('ordem_id', $id)->delete(null);
+        $this->pagamentoModel->where('ordem_id', $id)->delete(null);
+        $this->model->delete($id);
+
+        $db->transComplete();
+
+        if (!$db->transStatus()) {
+            return redirect()->to(site_url('ordens'))->with('errors', ['Não foi possível excluir a ordem.']);
+        }
+
+        return redirect()->to(site_url('ordens'))->with('msg', 'Ordem excluída com sucesso!');
     }
 
     // -----------------
@@ -668,7 +654,6 @@ class Ordem extends BaseController
             'total'          => $total,
         ]);
 
-        $this->syncSegundoParRefs($ordemId);
         $totais = $this->recalcularTotaisOrdem($ordemId);
 
         if ($this->request->isAJAX()) {
@@ -737,7 +722,6 @@ class Ordem extends BaseController
             'total'      => $total,
         ]);
 
-        $this->syncSegundoParRefs($ordemId);
         $totais = $this->recalcularTotaisOrdem($ordemId);
 
         if ($this->request->isAJAX()) {
@@ -761,7 +745,6 @@ class Ordem extends BaseController
 
         $this->ordemItemModel->delete($itemId);
 
-        $this->syncSegundoParRefs($ordemId);
         $totais = $this->recalcularTotaisOrdem($ordemId);
 
         if ($this->request->isAJAX()) {

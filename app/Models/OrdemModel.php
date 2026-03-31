@@ -39,8 +39,6 @@ class OrdemModel extends Model
         'obs',
         'armacao_1_item_id',
         'lente_1_item_id',
-        'armacao_2_item_id',
-        'lente_2_item_id',
         'desconto_percentual',
         'vendedor_id',
     ];
@@ -64,8 +62,6 @@ class OrdemModel extends Model
         'numero_nota'               => 'permit_empty|decimal',
         'armacao_1_item_id'         => 'permit_empty',
         'lente_1_item_id'           => 'permit_empty',
-        'armacao_2_item_id'         => 'permit_empty',
-        'lente_2_item_id'           => 'permit_empty',
         'desconto_percentual'       => 'permit_empty',
     ];
 

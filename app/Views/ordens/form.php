@@ -28,13 +28,6 @@ $isEdit = !empty($ordem['id']);
 // Rotas
 $action = $isEdit ? site_url('ordens/' . $ordem['id'] . '/update') : site_url('ordens');
 
-// Promoção 2º par (detecção automática quando tiver item_id 2)
-$autoSegundoPar  = !empty($ordem['armacao_2_item_id']) || !empty($ordem['lente_2_item_id']);
-$promoSegundoPar = (int)($ordem['promocao_segundo_par'] ?? 0);
-if ($promoSegundoPar === 0 && $autoSegundoPar) {
-    $promoSegundoPar = 1;
-}
-
 // Helpers
 $fmt = fn($v) => number_format((float)$v, 2, ',', '.');
 
@@ -208,21 +201,6 @@ $placeholderLabel = $isLegacyVenda
                     <label class="form-label">O.S.</label>
                     <input type="text" name="ordem_servico" class="form-control"
                         value="<?= esc($ordem['ordem_servico'] ?? '') ?>">
-                </div>
-
-                <div class="col-md-2 d-flex align-items-end">
-                    <div class="form-check">
-                        <input type="hidden" name="promocao_segundo_par" value="0">
-                        <input class="form-check-input" type="checkbox"
-                            name="promocao_segundo_par" value="1" id="promoSegundoPar"
-                            <?= $promoSegundoPar ? 'checked' : '' ?>>
-                        <label class="form-check-label" for="promoSegundoPar">
-                            Promoção 2º par
-                            <?php if ($autoSegundoPar): ?>
-                                <span class="badge text-bg-success ms-1">detectada</span>
-                            <?php endif; ?>
-                        </label>
-                    </div>
                 </div>
 
                 <div class="col-md-2">
